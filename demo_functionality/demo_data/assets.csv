@@ -1,0 +1,5 @@
+segment_id,name,maop_psig,jurisdiction,from_node,to_node
+SEG-01,Mainline South,1000,PHMSA,NODE-A,NODE-B
+SEG-02,Mainline North,950,PHMSA,NODE-B,NODE-C
+SEG-03,Eastern Branch,875,PHMSA,NODE-C,NODE-D
+SEG-04,Western Spur,1100,PHMSA,NODE-B,NODE-E

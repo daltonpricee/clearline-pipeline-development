@@ -1,4 +1,6 @@
 import json
+import csv
+from datetime import datetime
 
 def load_rules(rules_file="rules.json"):
     """Load rules from JSON file."""
@@ -33,27 +35,112 @@ def evaluate_status(pressure_psig, maop_psig, thresholds):
     
     return "OK"
 
-# Example usage
-if __name__ == "__main__":
-    # Load rules
-    thresholds = load_rules("rules.json")
+def load_assets(filepath):
+    """Load assets from CSV file."""
+    assets = {}
+    with open(filepath, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            segment_id = row['segment_id']
+            assets[segment_id] = {
+                'segment_id': segment_id,
+                'name': row['name'],
+                'maop_psig': float(row['maop_psig']),
+                'jurisdiction': row['jurisdiction']
+            }
+    return assets
+
+def load_telemetry(filepath):
+    """Load telemetry from CSV file."""
+    telemetry = []
+    with open(filepath, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            telemetry.append({
+                'ts': row['ts'],
+                'segment_id': row['segment_id'],
+                'pressure_psig': float(row['pressure_psig'])
+            })
+    return telemetry
+
+def get_latest_pressure(segment_id, target_time, telemetry):
+    """Get the most recent pressure reading for a segment at or before target_time."""
+    target_dt = datetime.fromisoformat(target_time.replace('Z', '+00:00'))
     
-    # Test cases
-    maop = 950.0  # MAOP in psig
+    latest_reading = None
+    latest_dt = None
     
-    test_pressures = [
-        (800, "Should be OK"),
-        (855, "Should be WARNING (90%)"),
-        (902, "Should be CRITICAL (95%)"),
-        (950, "Should be VIOLATION (100%)"),
-        (975, "Should be VIOLATION (over 100%)")
-    ]
+    for reading in telemetry:
+        if reading['segment_id'] != segment_id:
+            continue
+            
+        reading_dt = datetime.fromisoformat(reading['ts'].replace('Z', '+00:00'))
+        
+        if reading_dt <= target_dt:
+            if latest_dt is None or reading_dt > latest_dt:
+                latest_reading = reading
+                latest_dt = reading_dt
     
-    print(f"MAOP: {maop} psig\n")
-    print(f"{'Pressure':<12} {'Ratio':<12} {'Status':<12} {'Note':<30}")
-    print("-" * 70)
+    return latest_reading
+
+def evaluate_at_time(target_time, assets, telemetry, thresholds, evaluate_status_func):
+    """Evaluate all segments at a specific time."""
+    results = []
     
-    for pressure, note in test_pressures:
-        status = evaluate_status(pressure, maop, thresholds)
-        ratio = pressure / maop
-        print(f"{pressure:<12} {ratio:<12.1%} {status:<12} {note:<30}")
+    for segment_id, asset in assets.items():
+        reading = get_latest_pressure(segment_id, target_time, telemetry)
+        
+        if reading:
+            pressure = reading['pressure_psig']
+            maop = asset['maop_psig']
+            status = evaluate_status_func(pressure, maop, thresholds)
+            ratio = pressure / maop
+            
+            results.append({
+                'segment_id': segment_id,
+                'name': asset['name'],
+                'pressure_psig': pressure,
+                'maop_psig': maop,
+                'ratio': ratio,
+                'status': status,
+                'reading_time': reading['ts']
+            })
+        else:
+            results.append({
+                'segment_id': segment_id,
+                'name': asset['name'],
+                'pressure_psig': None,
+                'maop_psig': asset['maop_psig'],
+                'ratio': None,
+                'status': 'NO_DATA',
+                'reading_time': None
+            })
+    
+    return results
+
+def print_results_table(results, target_time):
+    """Print results in a formatted table."""
+    print("\n" + "=" * 95)
+    print(f"ClearLine Pipeline - MAOP Compliance Status at {target_time}")
+    print("=" * 95)
+    print(f"{'Segment':<12} {'Name':<20} {'Pressure':<15} {'MAOP':<15} {'% MAOP':<10} {'Status':<12}")
+    print("-" * 95)
+    
+    for result in results:
+        segment = result['segment_id']
+        name = result['name'][:18]
+        
+        if result['pressure_psig'] is not None:
+            pressure = f"{result['pressure_psig']:.1f} psig"
+            maop = f"{result['maop_psig']:.1f} psig"
+            ratio = f"{result['ratio']:.1%}"
+        else:
+            pressure = "N/A"
+            maop = f"{result['maop_psig']:.1f} psig"
+            ratio = "N/A"
+        
+        status = result['status']
+        
+        print(f"{segment:<12} {name:<20} {pressure:<15} {maop:<15} {ratio:<10} {status:<12}")
+    
+    print("=" * 95)
