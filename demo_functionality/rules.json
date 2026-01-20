@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1.0",
+  "description": "PHMSA MAOP-based compliance rules for pipeline segments",
+  "rules": {
+    "maop_compliance": {
+      "description": "Maximum Allowable Operating Pressure compliance thresholds",
+      "authority": "PHMSA",
+      "thresholds": [
+        {
+          "status": "OK",
+          "condition": "pressure < 0.90 * MAOP",
+          "threshold_ratio": 0.90,
+          "operator": "<",
+          "description": "Normal operating condition - pressure below 90% of MAOP"
+        },
+        {
+          "status": "WARNING",
+          "condition": "0.90 * MAOP <= pressure < 0.95 * MAOP",
+          "threshold_ratio": 0.90,
+          "operator": ">=",
+          "description": "Approaching operational limit - pressure at or above 90% of MAOP"
+        },
+        {
+          "status": "CRITICAL",
+          "condition": "0.95 * MAOP <= pressure < 1.00 * MAOP",
+          "threshold_ratio": 0.95,
+          "operator": ">=",
+          "description": "Critical condition - pressure at or above 95% of MAOP"
+        },
+        {
+          "status": "VIOLATION",
+          "condition": "pressure >= 1.00 * MAOP",
+          "threshold_ratio": 1.00,
+          "operator": ">=",
+          "description": "MAOP violation - pressure at or exceeds MAOP limit"
+        }
+      ],
+      "evaluation_order": "descending",
+      "evaluation_note": "Thresholds are evaluated from highest to lowest ratio. First matching condition determines status."
+    }
+  },
+  "metadata": {
+    "pressure_units": "psig",
+    "timestamp_format": "ISO-8601 UTC",
+    "created": "2026-01-19",
+    "author": "ClearLine Pipeline Team"
+  }
+}
