@@ -5,15 +5,15 @@ def main():
     
     # Load rules
     print("Loading rules...")
-    thresholds = load_rules("demo_functionality/rules.json")
+    thresholds = load_rules("rules.json")
     
-    # Load data
-    print("Loading assets...")
-    assets = load_assets("demo_functionality/demo_data/assets.csv")
+    # Load data from database
+    print("Loading assets from database...")
+    assets = load_assets()
     print(f"  Loaded {len(assets)} segments")
-    
-    print("Loading telemetry...")
-    telemetry = load_telemetry("demo_functionality/demo_data/telemetry.csv")
+
+    print("Loading telemetry from database...")
+    telemetry = load_telemetry()
     print(f"  Loaded {len(telemetry)} readings")
     
     # Key times in the drift story

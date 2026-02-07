@@ -1,6 +1,6 @@
 import json
-import csv
 from datetime import datetime
+from db_config import get_default_connection
 
 def load_rules(rules_file="rules.json"):
     """Load rules from JSON file."""
@@ -35,32 +35,55 @@ def evaluate_status(pressure_psig, maop_psig, thresholds):
     
     return "OK"
 
-def load_assets(filepath):
-    """Load assets from CSV file."""
+def load_assets():
+    """Load assets from database Assets table."""
     assets = {}
-    with open(filepath, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            segment_id = row['segment_id']
+    db_conn = get_default_connection()
+
+    with db_conn as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT SegmentID, Name, MAOP_PSIG, Jurisdiction
+            FROM dbo.Assets
+            ORDER BY SegmentID
+        """
+        cursor.execute(query)
+
+        for row in cursor.fetchall():
+            segment_id = row.SegmentID
             assets[segment_id] = {
                 'segment_id': segment_id,
-                'name': row['name'],
-                'maop_psig': float(row['maop_psig']),
-                'jurisdiction': row['jurisdiction']
+                'name': row.Name,
+                'maop_psig': float(row.MAOP_PSIG),
+                'jurisdiction': row.Jurisdiction
             }
+
     return assets
 
-def load_telemetry(filepath):
-    """Load telemetry from CSV file."""
+def load_telemetry():
+    """Load telemetry from database Readings table."""
     telemetry = []
-    with open(filepath, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+    db_conn = get_default_connection()
+
+    with db_conn as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT Timestamp, SegmentID, PressurePSIG
+            FROM dbo.Readings
+            WHERE DataQuality = 'GOOD'
+            ORDER BY Timestamp, SegmentID
+        """
+        cursor.execute(query)
+
+        for row in cursor.fetchall():
+            # Convert datetime2 to ISO format string
+            timestamp_str = row.Timestamp.isoformat() + 'Z'
             telemetry.append({
-                'ts': row['ts'],
-                'segment_id': row['segment_id'],
-                'pressure_psig': float(row['pressure_psig'])
+                'ts': timestamp_str,
+                'segment_id': row.SegmentID,
+                'pressure_psig': float(row.PressurePSIG)
             })
+
     return telemetry
 
 def get_latest_pressure(segment_id, target_time, telemetry):
