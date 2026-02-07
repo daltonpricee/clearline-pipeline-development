@@ -24,21 +24,50 @@ def clear_all_data():
         cursor = conn.cursor()
 
         # Delete in order to respect foreign keys
-        cursor.execute("DELETE FROM dbo.Compliance")
-        cursor.execute("DELETE FROM dbo.AuditTrail")
+        try:
+            cursor.execute("DELETE FROM dbo.Compliance")
+            print("  ✓ Cleared Compliance")
+        except Exception as e:
+            print(f"  ⚠ Compliance: {e}")
+
+        # AuditTrail is immutable - skip it (accumulates over demos)
+        print("  ⓘ AuditTrail is immutable (skipping - audit logs accumulate)")
+
         cursor.execute("DELETE FROM dbo.Readings")
-        cursor.execute("DELETE FROM dbo.PressureTestRecords")
+        print("  ✓ Cleared Readings")
+
+        try:
+            cursor.execute("DELETE FROM dbo.PressureTestRecords")
+            print("  ✓ Cleared PressureTestRecords")
+        except Exception as e:
+            print(f"  ⚠ PressureTestRecords: {e}")
+
         cursor.execute("DELETE FROM dbo.Sensors")
+        print("  ✓ Cleared Sensors")
+
         cursor.execute("DELETE FROM dbo.Assets")
-        cursor.execute("DELETE FROM dbo.Users")
+        print("  ✓ Cleared Assets")
+
+        # Users might be referenced by AuditTrail (which we can't delete)
+        try:
+            cursor.execute("""
+                DELETE FROM dbo.Users
+                WHERE UserID NOT IN (SELECT DISTINCT UserID FROM dbo.AuditTrail WHERE UserID IS NOT NULL)
+            """)
+            deleted = cursor.rowcount
+            cursor.execute("SELECT COUNT(*) FROM dbo.Users")
+            remaining = cursor.fetchone()[0]
+            print(f"  ✓ Cleared {deleted} Users (kept {remaining} users referenced in AuditTrail)")
+        except Exception as e:
+            print(f"  ⚠ Users: {e}")
 
         conn.commit()
 
-    print("✓ All tables cleared")
+    print("\n✓ Demo tables cleared (AuditTrail and referenced Users preserved)")
 
 
 def populate_users():
-    """Create demo users."""
+    """Create demo users (skip if they already exist)."""
     print("\nPopulating Users...")
     db_conn = get_default_connection()
 
@@ -52,13 +81,20 @@ def populate_users():
         cursor = conn.cursor()
 
         for first, last, email, role in users:
-            cursor.execute("""
-                INSERT INTO dbo.Users (FirstName, LastName, Email, Role)
-                OUTPUT INSERTED.UserID
-                VALUES (?, ?, ?, ?)
-            """, (first, last, email, role))
-            user_id = cursor.fetchone()[0]
-            print(f"  ✓ Created user: {first} {last} (ID: {user_id})")
+            # Check if user already exists
+            cursor.execute("SELECT UserID FROM dbo.Users WHERE Email = ?", (email,))
+            existing = cursor.fetchone()
+
+            if existing:
+                print(f"  ⓘ User already exists: {first} {last} (ID: {existing.UserID})")
+            else:
+                cursor.execute("""
+                    INSERT INTO dbo.Users (FirstName, LastName, Email, Role)
+                    OUTPUT INSERTED.UserID
+                    VALUES (?, ?, ?, ?)
+                """, (first, last, email, role))
+                user_id = cursor.fetchone()[0]
+                print(f"  ✓ Created user: {first} {last} (ID: {user_id})")
 
         conn.commit()
 
