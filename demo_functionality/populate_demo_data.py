@@ -68,7 +68,7 @@ def clear_all_data():
 
 def populate_users():
     """Create demo users (skip if they already exist)."""
-    print("\nPopulating Users...")
+    print("Populating Users...", end=" ")
     db_conn = get_default_connection()
 
     users = [
@@ -77,6 +77,7 @@ def populate_users():
         ("Mike", "Inspector", "mike.inspector@clearline.com", "Qualified Inspector"),
     ]
 
+    created = 0
     with db_conn as conn:
         cursor = conn.cursor()
 
@@ -85,23 +86,23 @@ def populate_users():
             cursor.execute("SELECT UserID FROM dbo.Users WHERE Email = ?", (email,))
             existing = cursor.fetchone()
 
-            if existing:
-                print(f"  ⓘ User already exists: {first} {last} (ID: {existing.UserID})")
-            else:
+            if not existing:
                 cursor.execute("""
                     INSERT INTO dbo.Users (FirstName, LastName, Email, Role)
                     OUTPUT INSERTED.UserID
                     VALUES (?, ?, ?, ?)
                 """, (first, last, email, role))
-                user_id = cursor.fetchone()[0]
-                print(f"  ✓ Created user: {first} {last} (ID: {user_id})")
+                cursor.fetchone()
+                created += 1
 
         conn.commit()
+
+    print(f"✓ ({created} created, {len(users) - created} existing)")
 
 
 def populate_assets():
     """Create pipeline segments (assets)."""
-    print("\nPopulating Assets...")
+    print("Populating Assets...", end=" ")
     db_conn = get_default_connection()
 
     assets = [
@@ -124,16 +125,16 @@ def populate_assets():
                 OUTPUT INSERTED.AssetID
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, asset_data)
-
-            asset_id = cursor.fetchone()[0]
-            print(f"  ✓ Created asset: {asset_data[1]} (ID: {asset_id}, MAOP: {asset_data[11]} PSIG)")
+            cursor.fetchone()
 
         conn.commit()
+
+    print(f"✓ ({len(assets)} segments)")
 
 
 def populate_sensors():
     """Create pressure sensors for each segment."""
-    print("\nPopulating Sensors...")
+    print("Populating Sensors...", end=" ")
     db_conn = get_default_connection()
 
     sensors = [
@@ -155,11 +156,11 @@ def populate_sensors():
                 OUTPUT INSERTED.SensorID
                 VALUES (?, ?, ?, ?, ?, ?)
             """, sensor_data)
-
-            sensor_id = cursor.fetchone()[0]
-            print(f"  ✓ Created sensor: {sensor_data[0]} on {sensor_data[1]} (ID: {sensor_id})")
+            cursor.fetchone()
 
         conn.commit()
+
+    print(f"✓ ({len(sensors)} sensors)")
 
 
 def get_sensor_id(segment_id):
@@ -177,17 +178,19 @@ def get_sensor_id(segment_id):
 
 def populate_readings_with_story():
     """
-    Populate readings following the drift story timeline.
+    Populate readings following the drift story timeline WITH transient spikes.
 
     Timeline (2026-01-18):
     - 10:00 - Baseline readings (all normal)
     - 10:02 - SEG-02 crosses 90% MAOP (855 PSIG) → WARNING
-    - 10:07 - SEG-02 crosses 95% MAOP (902.5 PSIG) → CRITICAL
-    - 10:12 - SEG-02 crosses 100% MAOP (950+ PSIG) → VIOLATION
+    - 10:03 - SEG-01 TRANSIENT SPIKE (96% for one reading) → FILTERED by smart logic
+    - 10:07 - SEG-02 crosses 95% MAOP (902.5 PSIG) → CRITICAL (SUSTAINED)
+    - 10:09 - SEG-04 TRANSIENT SPIKE (97% for one reading) → FILTERED by smart logic
+    - 10:12 - SEG-02 crosses 100% MAOP (950+ PSIG) → VIOLATION (SUSTAINED)
+
+    This demonstrates ClearLine's transient filter preventing nuisance alarms!
     """
-    print("\nPopulating Readings with Hash Chain (Following Drift Story)...")
-    print("Timeline: 2026-01-18, 10:00 AM - 10:15 AM")
-    print("-" * 80)
+    print("Populating Readings (Drift Story Timeline)...", end=" ")
 
     base_date = datetime(2026, 1, 18, 10, 0, 0)
 
@@ -226,6 +229,22 @@ def populate_readings_with_story():
             "SEG-04": 828.0,
         }),
 
+        # 10:03 - TRANSIENT SPIKE on SEG-01 (valve operation simulation)
+        (3, {
+            "SEG-01": 965.0,   # 96.5% of 1000 - SPIKE! (but 5-min avg will be ~76%)
+            "SEG-02": 860.0,   # 90.5% - continuing climb
+            "SEG-03": 653.0,
+            "SEG-04": 829.0,
+        }),
+
+        # 10:04 - SEG-01 returns to normal after spike
+        (4, {
+            "SEG-01": 757.0,   # Back to normal - proves it was transient
+            "SEG-02": 870.0,   # 91.6% - continuing climb
+            "SEG-03": 654.0,
+            "SEG-04": 830.0,
+        }),
+
         # 10:05 - SEG-02 continues climbing
         (5, {
             "SEG-01": 758.0,
@@ -242,12 +261,20 @@ def populate_readings_with_story():
             "SEG-04": 832.0,
         }),
 
-        # 10:10 - SEG-02 approaching 100%
+        # 10:09 - TRANSIENT SPIKE on SEG-04 (pump start simulation)
+        (9, {
+            "SEG-01": 761.0,
+            "SEG-02": 925.0,   # 97.4% - still climbing (SUSTAINED)
+            "SEG-03": 659.0,
+            "SEG-04": 1070.0,  # 97.3% of 1100 - SPIKE! (but 5-min avg will be ~76%)
+        }),
+
+        # 10:10 - SEG-04 returns to normal, SEG-02 approaching 100%
         (10, {
             "SEG-01": 762.0,
-            "SEG-02": 940.0,   # 98.9% - Still CRITICAL
+            "SEG-02": 940.0,   # 98.9% - Still CRITICAL (SUSTAINED)
             "SEG-03": 660.0,
-            "SEG-04": 835.0,
+            "SEG-04": 837.0,   # Back to normal - proves it was transient
         }),
 
         # 10:12 - SEG-02 crosses 100% MAOP → VIOLATION
@@ -268,12 +295,10 @@ def populate_readings_with_story():
     ]
 
     reading_count = 0
+    print(".", end="", flush=True)
 
     for minutes_offset, segment_pressures in timeline:
         timestamp = base_date + timedelta(minutes=minutes_offset)
-        time_str = timestamp.strftime("%H:%M")
-
-        print(f"\n{time_str} - {timestamp.date()}")
 
         for segment_id, pressure in segment_pressures.items():
             sensor_id = sensor_ids[segment_id]
@@ -290,29 +315,16 @@ def populate_readings_with_story():
                 data_quality="GOOD"
             )
 
-            ratio = (pressure / maop) * 100
-
-            # Determine status for display
-            status = "NORMAL"
-            if ratio >= 100:
-                status = "VIOLATION"
-            elif ratio >= 95:
-                status = "CRITICAL"
-            elif ratio >= 90:
-                status = "WARNING"
-
-            status_indicator = "❌" if status == "VIOLATION" else "⚠️ " if status in ["CRITICAL", "WARNING"] else "✓ "
-
-            print(f"  {status_indicator} {segment_id}: {pressure:6.1f} PSIG ({ratio:5.1f}% MAOP) - {status:8s} | Hash: {hash_sig[:12]}...")
-
             reading_count += 1
+            if reading_count % 7 == 0:
+                print(".", end="", flush=True)
 
-    print(f"\n✓ Inserted {reading_count} readings with hash chain")
+    print(f" ✓ ({reading_count} readings with hash chain)")
 
 
 def populate_operator_acknowledgment():
     """Create audit log entry for operator acknowledgment at 10:08."""
-    print("\nCreating Operator Acknowledgment (Audit Trail)...")
+    print("Creating Operator Acknowledgment...", end=" ")
 
     db_conn = get_default_connection()
 
@@ -342,17 +354,16 @@ def populate_operator_acknowledgment():
 
         conn.commit()
 
-        print(f"  ✓ Operator acknowledgment logged at {ack_time.strftime('%H:%M')}")
-        print(f"    Event: CRITICAL alarm on SEG-02 acknowledged")
+        print(f"✓ (audit log entry created)")
 
 
 def main():
     """Run complete demo data population."""
     print("\n")
-    print("╔" + "=" * 78 + "╗")
-    print("║" + " " * 15 + "ClearLine Pipeline - Demo Data Population" + " " * 21 + "║")
-    print("║" + " " * 20 + "Following the 'Drift Story' Timeline" + " " * 22 + "║")
-    print("╚" + "=" * 78 + "╝")
+    print("=" * 80)
+    print(" " * 15 + "ClearLine Pipeline - Demo Data Population")
+    print(" " * 20 + "Following the 'Drift Story' Timeline")
+    print("=" * 80)
 
     # Ask user if they want to clear existing data
     print("\nThis will populate your database with demo data.")
@@ -372,22 +383,26 @@ def main():
         print("\n" + "=" * 80)
         print("✓ DEMO DATA POPULATION COMPLETE")
         print("=" * 80)
-        print("\nYour database now contains:")
+        print("\nDatabase Summary:")
         print("  • 4 pipeline segments (assets)")
-        print("  • 4 pressure sensors")
+        print("  • 4 pressure sensors  ")
         print("  • 3 users (operators/engineers)")
-        print("  • 28 pressure readings with hash chain following the drift story")
-        print("  • 1 operator acknowledgment audit log entry")
-        print("\nTimeline Summary:")
+        print("  • 36 pressure readings with cryptographic hash chain")
+        print("  • 1 operator acknowledgment (audit trail)")
+        print("\nDrift Story Timeline (with Transient Filter Demo):")
         print("  10:00 - All segments normal")
         print("  10:02 - SEG-02 crosses 90% MAOP → WARNING")
-        print("  10:07 - SEG-02 crosses 95% MAOP → CRITICAL")
-        print("  10:08 - Operator acknowledges alarm")
-        print("  10:12 - SEG-02 crosses 100% MAOP → VIOLATION")
-        print("\nNext steps:")
-        print("  1. Run: python test_db_connection.py")
-        print("  2. Run: python demo_hash_integrity.py")
-        print("  3. Run: python main.py")
+        print("  10:03 - SEG-01 TRANSIENT SPIKE (96%) → FILTERED (not flagged)")
+        print("  10:04 - SEG-01 returns to normal (proves spike was transient)")
+        print("  10:07 - SEG-02 crosses 95% MAOP → CRITICAL (SUSTAINED)")
+        print("  10:08 - Operator acknowledges")
+        print("  10:09 - SEG-04 TRANSIENT SPIKE (97%) → FILTERED (not flagged)")
+        print("  10:10 - SEG-04 returns to normal (proves spike was transient)")
+        print("  10:12 - SEG-02 crosses 100% MAOP → VIOLATION (SUSTAINED)")
+        print("\n  🧠 ClearLine's Smart Filter:")
+        print("     - 2 transient spikes FILTERED (no nuisance alarms)")
+        print("     - 1 sustained drift FLAGGED (real issue detected)")
+        print("=" * 80)
 
     except Exception as e:
         print(f"\n❌ Error: {e}")

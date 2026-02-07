@@ -1,11 +1,14 @@
+import os
 from demo_logic import load_rules, evaluate_status, load_assets, load_telemetry, evaluate_at_time, print_results_table
 
 def main():
     """Main execution - evaluate pipeline segments at specific times."""
-    
-    # Load rules
+
+    # Load rules (handle path correctly)
     print("Loading rules...")
-    thresholds = load_rules("rules.json")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    rules_path = os.path.join(script_dir, "rules.json")
+    thresholds = load_rules(rules_path)
     
     # Load data from database
     print("Loading assets from database...")
