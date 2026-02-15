@@ -29,14 +29,14 @@ def reset_everything():
             try:
                 cursor.execute(f"DELETE FROM dbo.{table}")
                 deleted = cursor.rowcount
-                print(f"  ✓ Deleted {deleted} rows from {table}")
+                print(f"  OK: Deleted {deleted} rows from {table}")
             except Exception as e:
-                print(f"  ⚠ {table}: {str(e)[:100]}")
+                print(f"  WARNING: {table}: {str(e)[:100]}")
 
         conn.commit()
 
     print("\n" + "=" * 80)
-    print("✓ DATABASE COMPLETELY CLEARED")
+    print("DATABASE COMPLETELY CLEARED")
     print("=" * 80)
     print("\nNext step: Run populate_demo_data.py")
     print("  cd demo_functionality")
@@ -45,7 +45,7 @@ def reset_everything():
 
 
 if __name__ == "__main__":
-    response = input("⚠️  This will DELETE ALL DATA. Are you sure? (yes/no): ")
+    response = input("WARNING: This will DELETE ALL DATA. Are you sure? (yes/no): ")
 
     if response.lower() == 'yes':
         reset_everything()

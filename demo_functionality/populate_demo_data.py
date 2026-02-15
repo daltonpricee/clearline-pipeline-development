@@ -26,7 +26,7 @@ def clear_all_data():
         # Delete in order to respect foreign keys
         try:
             cursor.execute("DELETE FROM dbo.Compliance")
-            print("  ✓ Cleared Compliance")
+            print("  OK: Cleared Compliance")
         except Exception as e:
             print(f"  ⚠ Compliance: {e}")
 
@@ -34,19 +34,19 @@ def clear_all_data():
         print("  ⓘ AuditTrail is immutable (skipping - audit logs accumulate)")
 
         cursor.execute("DELETE FROM dbo.Readings")
-        print("  ✓ Cleared Readings")
+        print("  OK:Cleared Readings")
 
         try:
             cursor.execute("DELETE FROM dbo.PressureTestRecords")
-            print("  ✓ Cleared PressureTestRecords")
+            print("  OK:Cleared PressureTestRecords")
         except Exception as e:
             print(f"  ⚠ PressureTestRecords: {e}")
 
         cursor.execute("DELETE FROM dbo.Sensors")
-        print("  ✓ Cleared Sensors")
+        print("  OK:Cleared Sensors")
 
         cursor.execute("DELETE FROM dbo.Assets")
-        print("  ✓ Cleared Assets")
+        print("  OK:Cleared Assets")
 
         # Users might be referenced by AuditTrail (which we can't delete)
         try:
@@ -57,7 +57,7 @@ def clear_all_data():
             deleted = cursor.rowcount
             cursor.execute("SELECT COUNT(*) FROM dbo.Users")
             remaining = cursor.fetchone()[0]
-            print(f"  ✓ Cleared {deleted} Users (kept {remaining} users referenced in AuditTrail)")
+            print(f"  OK:Cleared {deleted} Users (kept {remaining} users referenced in AuditTrail)")
         except Exception as e:
             print(f"  ⚠ Users: {e}")
 
