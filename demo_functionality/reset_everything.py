@@ -27,7 +27,7 @@ def reset_everything():
 
         for table in tables:
             try:
-                cursor.execute(f"DELETE FROM dbo.{table}")
+                cursor.execute(f"DELETE FROM {table}")
                 deleted = cursor.rowcount
                 print(f"  OK: Deleted {deleted} rows from {table}")
             except Exception as e:

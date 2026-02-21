@@ -27,7 +27,7 @@ def get_reading_hash(reading_id):
     with db_conn as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT hash_signature FROM dbo.Readings WHERE ReadingID = ?
+            SELECT hash_signature FROM Readings WHERE ReadingID = %s
         """, (reading_id,))
         result = cursor.fetchone()
         return result[0] if result else None
@@ -40,7 +40,7 @@ def get_sample_readings():
     with db_conn as conn:
         cursor = conn.cursor()
         query = """
-            SELECT TOP 10
+            SELECT
                 r.ReadingID,
                 r.SegmentID,
                 r.Timestamp,
@@ -48,8 +48,9 @@ def get_sample_readings():
                 r.MAOP_PSIG,
                 (r.PressurePSIG / r.MAOP_PSIG * 100) as Ratio,
                 r.hash_signature
-            FROM dbo.Readings r
+            FROM Readings r
             ORDER BY r.Timestamp
+            LIMIT 10
         """
         cursor.execute(query)
         columns = [column[0] for column in cursor.description]
@@ -85,8 +86,8 @@ def add_engineering_note_with_hash(reconciler_id, reconciler_name, asset_id, qi_
         version_number = 1
         if supersedes_id:
             cursor.execute("""
-                SELECT VersionNumber FROM dbo.EngineeringReconciliation
-                WHERE NoteID = ?
+                SELECT VersionNumber FROM EngineeringReconciliation
+                WHERE NoteID = %s
             """, (supersedes_id,))
             result = cursor.fetchone()
             if result:
@@ -110,11 +111,11 @@ def add_engineering_note_with_hash(reconciler_id, reconciler_name, asset_id, qi_
 
         # Insert note
         cursor.execute("""
-            INSERT INTO dbo.EngineeringReconciliation
+            INSERT INTO EngineeringReconciliation
             (ReconcilerID, ReconcilerName, AssetID, QI_Status, NoteText,
              VersionNumber, Status, ReadingID, OriginalDataHash, ReconciliationHash)
-            OUTPUT INSERTED.NoteID
-            VALUES (?, ?, ?, ?, ?, ?, 'CURRENT', ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, 'CURRENT', %s, %s, %s)
+            RETURNING NoteID
         """, (reconciler_id, reconciler_name, asset_id, qi_status, note_text,
               version_number, reading_id, original_data_hash, reconciliation_hash))
 
@@ -123,9 +124,9 @@ def add_engineering_note_with_hash(reconciler_id, reconciler_name, asset_id, qi_
         # If superseding, mark old note
         if supersedes_id:
             cursor.execute("""
-                UPDATE dbo.EngineeringReconciliation
-                SET Status = 'SUPERSEDED', SupersededByID = ?
-                WHERE NoteID = ?
+                UPDATE EngineeringReconciliation
+                SET Status = 'SUPERSEDED', SupersededByID = %s
+                WHERE NoteID = %s
             """, (note_id, supersedes_id))
 
         conn.commit()
@@ -144,8 +145,8 @@ def populate_demo_reconciliation_notes():
     # Get users
     with db_conn as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT UserID, FirstName + ' ' + LastName as Name FROM dbo.Users")
-        users = {row.Name: row.UserID for row in cursor.fetchall()}
+        cursor.execute("SELECT UserID, FirstName || ' ' || LastName as Name FROM Users")
+        users = {row[1]: row[0] for row in cursor.fetchall()}
 
     if not users:
         print("❌ No users found. Please run populate_demo_data.py first.")
@@ -261,7 +262,7 @@ def populate_demo_reconciliation_notes():
     print("  2. Hash Sealing: Every note cryptographically sealed")
     print("  3. Forensic Trail: OriginalDataHash anchors to raw sensor data")
     print("  4. QI Workflow: Notes progress through QI statuses")
-    print("  5. Immutable: Try to edit a note in SSMS - triggers will block it!")
+    print("  5. Immutable: Trigger prevents any field edits except versioning fields")
     print("=" * 80 + "\n")
 
 
@@ -272,6 +273,6 @@ if __name__ == "__main__":
         print(f"\n❌ Error: {e}")
         print("\nMake sure:")
         print("  1. Database has been populated: python populate_demo_data.py")
-        print("  2. EngineeringReconciliation table exists: run create_sticky_notes_table.sql")
+        print("  2. EngineeringReconciliation table exists: run create_database.sql")
         import traceback
         traceback.print_exc()

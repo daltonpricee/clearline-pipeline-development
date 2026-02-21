@@ -7,7 +7,7 @@ Run with: streamlit run dashboard.py
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import numpy as np
 from db_config import get_default_connection
@@ -1155,6 +1155,46 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 rules_path = os.path.join(script_dir, "rules.json")
 thresholds = load_rules(rules_path)
 
+def get_all_readings():
+    """Get all readings from database with calculated ratios."""
+    db_conn = get_default_connection()
+
+    with db_conn as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT
+                r.ReadingID        as "ReadingID",
+                r.Timestamp        as "Timestamp",
+                r.SegmentID        as "SegmentID",
+                a.Name             as "SegmentName",
+                r.PressurePSIG     as "PressurePSIG",
+                r.MAOP_PSIG        as "MAOP_PSIG",
+                (r.PressurePSIG / r.MAOP_PSIG * 100) as "Ratio",
+                r.DataQuality      as "DataQuality",
+                r.hash_signature
+            FROM Readings r
+            JOIN Assets a ON r.SegmentID = a.SegmentID
+            ORDER BY r.Timestamp ASC
+        """
+        cursor.execute(query)
+
+        columns = [column[0] for column in cursor.description]
+        data = cursor.fetchall()
+
+        if data:
+            df = pd.DataFrame.from_records(data, columns=columns)
+            numeric_cols = ['PressurePSIG', 'MAOP_PSIG', 'Ratio']
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = df[col].astype(float)
+
+            # Apply segment filter
+            if st.session_state.selected_segments:
+                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+
+            return df
+        return pd.DataFrame()
+
 # Quick Stats Banner
 df_quick_check = get_all_readings() if 'get_all_readings' in dir() else pd.DataFrame()
 if not df_quick_check.empty:
@@ -1242,47 +1282,6 @@ if not df_quick_check.empty:
     st.markdown("<div style='margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
 # Database query functions
-def get_all_readings():
-    """Get all readings from database with calculated ratios."""
-    db_conn = get_default_connection()
-
-    with db_conn as conn:
-        cursor = conn.cursor()
-        query = """
-            SELECT
-                r.ReadingID,
-                r.Timestamp,
-                r.SegmentID,
-                a.Name as SegmentName,
-                r.PressurePSIG,
-                r.MAOP_PSIG,
-                (r.PressurePSIG / r.MAOP_PSIG * 100) as Ratio,
-                r.DataQuality,
-                r.hash_signature
-            FROM dbo.Readings r
-            JOIN dbo.Assets a ON r.SegmentID = a.SegmentID
-            ORDER BY r.Timestamp ASC
-        """
-        cursor.execute(query)
-
-        columns = [column[0] for column in cursor.description]
-        data = cursor.fetchall()
-
-        if data:
-            df = pd.DataFrame.from_records(data, columns=columns)
-            numeric_cols = ['PressurePSIG', 'MAOP_PSIG', 'Ratio']
-            for col in numeric_cols:
-                if col in df.columns:
-                    df[col] = df[col].astype(float)
-
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
-
-            return df
-        return pd.DataFrame()
-
-
 def get_drift_alerts():
     """Get all readings that crossed 95% MAOP threshold."""
     db_conn = get_default_connection()
@@ -1291,20 +1290,20 @@ def get_drift_alerts():
         cursor = conn.cursor()
         query = """
             SELECT
-                r.Timestamp,
-                r.SegmentID,
-                a.Name as SegmentName,
-                r.PressurePSIG,
-                r.MAOP_PSIG,
-                (r.PressurePSIG / r.MAOP_PSIG * 100) as Ratio,
+                r.Timestamp    as "Timestamp",
+                r.SegmentID    as "SegmentID",
+                a.Name         as "SegmentName",
+                r.PressurePSIG as "PressurePSIG",
+                r.MAOP_PSIG    as "MAOP_PSIG",
+                (r.PressurePSIG / r.MAOP_PSIG * 100) as "Ratio",
                 CASE
                     WHEN r.PressurePSIG >= r.MAOP_PSIG THEN 'VIOLATION'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.95 THEN 'CRITICAL'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.90 THEN 'WARNING'
                     ELSE 'OK'
-                END as Status
-            FROM dbo.Readings r
-            JOIN dbo.Assets a ON r.SegmentID = a.SegmentID
+                END as "Status"
+            FROM Readings r
+            JOIN Assets a ON r.SegmentID = a.SegmentID
             WHERE r.PressurePSIG >= r.MAOP_PSIG * 0.95
             ORDER BY r.Timestamp DESC
         """
@@ -1336,15 +1335,15 @@ def get_operator_activity():
         cursor = conn.cursor()
         query = """
             SELECT
-                a.Timestamp,
-                u.FirstName + ' ' + u.LastName as Operator,
-                a.EventType as ActionType,
-                a.TableAffected,
-                a.RecordID,
-                a.Details as Description,
-                a.ChangeReason as ComplianceNote
-            FROM dbo.AuditTrail a
-            LEFT JOIN dbo.Users u ON a.UserID = u.UserID
+                a.Timestamp    as "Timestamp",
+                u.FirstName || ' ' || u.LastName as "Operator",
+                a.EventType    as "ActionType",
+                a.TableAffected as "TableAffected",
+                a.RecordID     as "RecordID",
+                a.Details      as "Description",
+                a.ChangeReason as "ComplianceNote"
+            FROM AuditTrail a
+            LEFT JOIN Users u ON a.UserID = u.UserID
             ORDER BY a.Timestamp DESC
         """
         cursor.execute(query)
@@ -1366,20 +1365,20 @@ def get_sensor_health():
         cursor = conn.cursor()
         query = """
             SELECT
-                s.SerialNumber,
-                s.SegmentID,
-                a.Name as SegmentName,
-                s.LastCalibrationDate,
-                s.CalibratedBy,
-                s.HealthScore,
-                DATEDIFF(day, s.LastCalibrationDate, GETDATE()) as DaysSinceCalibration,
+                s.SerialNumber      as "SerialNumber",
+                s.SegmentID         as "SegmentID",
+                a.Name              as "SegmentName",
+                s.LastCalibrationDate as "LastCalibrationDate",
+                s.CalibratedBy      as "CalibratedBy",
+                s.HealthScore       as "HealthScore",
+                (CURRENT_DATE - s.LastCalibrationDate) as "DaysSinceCalibration",
                 CASE
-                    WHEN DATEDIFF(day, s.LastCalibrationDate, GETDATE()) > 365 THEN 'Overdue'
-                    WHEN DATEDIFF(day, s.LastCalibrationDate, GETDATE()) > 330 THEN 'Due Soon'
+                    WHEN (CURRENT_DATE - s.LastCalibrationDate) > 365 THEN 'Overdue'
+                    WHEN (CURRENT_DATE - s.LastCalibrationDate) > 330 THEN 'Due Soon'
                     ELSE 'Current'
-                END as CalibrationStatus
-            FROM dbo.Sensors s
-            JOIN dbo.Assets a ON s.SegmentID = a.SegmentID
+                END as "CalibrationStatus"
+            FROM Sensors s
+            JOIN Assets a ON s.SegmentID = a.SegmentID
             ORDER BY s.SegmentID
         """
         cursor.execute(query)
@@ -1410,25 +1409,25 @@ def get_assets_with_gps():
         cursor = conn.cursor()
         query = """
             SELECT
-                a.AssetID,
-                a.SegmentID,
-                a.Name as SegmentName,
-                a.PipeGrade,
-                a.DiameterInches,
-                a.WallThicknessInches,
-                a.MAOP_PSIG,
-                a.ClassLocation,
-                a.GPSLatitude,
-                a.GPSLongitude,
-                (SELECT TOP 1 r.PressurePSIG
-                 FROM dbo.Readings r
+                a.AssetID             as "AssetID",
+                a.SegmentID           as "SegmentID",
+                a.Name                as "SegmentName",
+                a.PipeGrade           as "PipeGrade",
+                a.DiameterInches      as "DiameterInches",
+                a.WallThicknessInches as "WallThicknessInches",
+                a.MAOP_PSIG           as "MAOP_PSIG",
+                a.ClassLocation       as "ClassLocation",
+                a.GPSLatitude         as "GPSLatitude",
+                a.GPSLongitude        as "GPSLongitude",
+                (SELECT r.PressurePSIG
+                 FROM Readings r
                  WHERE r.SegmentID = a.SegmentID
-                 ORDER BY r.Timestamp DESC) as CurrentPressure,
-                (SELECT TOP 1 r.Timestamp
-                 FROM dbo.Readings r
+                 ORDER BY r.Timestamp DESC LIMIT 1) as "CurrentPressure",
+                (SELECT r.Timestamp
+                 FROM Readings r
                  WHERE r.SegmentID = a.SegmentID
-                 ORDER BY r.Timestamp DESC) as LastReadingTime
-            FROM dbo.Assets a
+                 ORDER BY r.Timestamp DESC LIMIT 1) as "LastReadingTime"
+            FROM Assets a
             ORDER BY a.SegmentID
         """
         cursor.execute(query)
@@ -1464,29 +1463,29 @@ def get_unacknowledged_alerts():
         cursor = conn.cursor()
         query = """
             SELECT
-                r.ReadingID,
-                r.Timestamp as AlertTime,
-                r.SegmentID,
-                a.Name as SegmentName,
-                r.PressurePSIG,
-                r.MAOP_PSIG,
-                (r.PressurePSIG / r.MAOP_PSIG * 100) as Ratio,
+                r.ReadingID    as "ReadingID",
+                r.Timestamp    as "AlertTime",
+                r.SegmentID    as "SegmentID",
+                a.Name         as "SegmentName",
+                r.PressurePSIG as "PressurePSIG",
+                r.MAOP_PSIG    as "MAOP_PSIG",
+                (r.PressurePSIG / r.MAOP_PSIG * 100) as "Ratio",
                 CASE
                     WHEN r.PressurePSIG >= r.MAOP_PSIG THEN 'VIOLATION'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.95 THEN 'CRITICAL'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.90 THEN 'WARNING'
-                END as AlertLevel,
+                END as "AlertLevel",
                 CASE
                     WHEN EXISTS (
-                        SELECT 1 FROM dbo.AuditTrail at
+                        SELECT 1 FROM AuditTrail at
                         WHERE at.RecordID = r.SegmentID
                         AND at.EventType = 'OPERATOR_ACKNOWLEDGMENT'
                         AND at.Timestamp >= r.Timestamp
                     ) THEN 'Acknowledged'
                     ELSE 'Pending'
-                END as AckStatus
-            FROM dbo.Readings r
-            JOIN dbo.Assets a ON r.SegmentID = a.SegmentID
+                END as "AckStatus"
+            FROM Readings r
+            JOIN Assets a ON r.SegmentID = a.SegmentID
             WHERE r.PressurePSIG >= r.MAOP_PSIG * 0.90
             ORDER BY r.Timestamp DESC
         """
@@ -1518,24 +1517,24 @@ def get_alert_response_metrics():
         cursor = conn.cursor()
         query = """
             SELECT
-                r.Timestamp as AlertTime,
-                r.SegmentID,
-                a.Name as SegmentName,
-                r.PressurePSIG,
-                r.MAOP_PSIG,
-                (r.PressurePSIG / r.MAOP_PSIG * 100) as Ratio,
+                r.Timestamp    as "AlertTime",
+                r.SegmentID    as "SegmentID",
+                a.Name         as "SegmentName",
+                r.PressurePSIG as "PressurePSIG",
+                r.MAOP_PSIG    as "MAOP_PSIG",
+                (r.PressurePSIG / r.MAOP_PSIG * 100) as "Ratio",
                 CASE
                     WHEN r.PressurePSIG >= r.MAOP_PSIG THEN 'VIOLATION'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.95 THEN 'CRITICAL'
                     WHEN r.PressurePSIG >= r.MAOP_PSIG * 0.90 THEN 'WARNING'
-                END as AlertLevel,
+                END as "AlertLevel",
                 (SELECT MIN(at.Timestamp)
-                 FROM dbo.AuditTrail at
+                 FROM AuditTrail at
                  WHERE at.RecordID = r.SegmentID
                  AND at.Timestamp >= r.Timestamp
-                 AND at.EventType = 'OPERATOR_ACKNOWLEDGMENT') as AckTime
-            FROM dbo.Readings r
-            JOIN dbo.Assets a ON r.SegmentID = a.SegmentID
+                 AND at.EventType = 'OPERATOR_ACKNOWLEDGMENT') as "AckTime"
+            FROM Readings r
+            JOIN Assets a ON r.SegmentID = a.SegmentID
             WHERE r.PressurePSIG >= r.MAOP_PSIG * 0.90
             ORDER BY r.Timestamp DESC
         """
@@ -2087,9 +2086,9 @@ with tab_alerts_mgmt:
                         with db_conn as conn:
                             cursor = conn.cursor()
                             cursor.execute("""
-                                INSERT INTO dbo.AuditTrail
+                                INSERT INTO AuditTrail
                                 (Timestamp, UserID, EventType, TableAffected, RecordID, Details, ChangeReason)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s)
                             """, (
                                 datetime.now(), 1, 'OPERATOR_ACKNOWLEDGMENT', 'Readings',
                                 alert['SegmentID'],
@@ -2162,7 +2161,7 @@ with tab_activity:
         total_actions = len(df_activity)
         unique_operators = df_activity['Operator'].nunique()
         latest_action = pd.to_datetime(df_activity['Timestamp']).max()
-        hours_ago = (datetime.now() - latest_action).total_seconds() / 3600
+        hours_ago = (datetime.now(timezone.utc) - latest_action).total_seconds() / 3600
 
         col1.metric("Total Actions", total_actions)
         col2.metric("Active Operators", unique_operators)
@@ -2265,22 +2264,22 @@ with tab_notes:
             cursor = conn.cursor()
             query = """
                 SELECT
-                    e.NoteID,
-                    e.Timestamp,
-                    e.ReconcilerID,
-                    e.ReconcilerName,
-                    e.AssetID,
-                    a.Name as AssetName,
-                    e.QI_Status,
-                    e.NoteText,
-                    e.VersionNumber,
-                    e.SupersededByID,
-                    e.Status,
-                    e.ReadingID,
-                    e.OriginalDataHash,
-                    e.ReconciliationHash
-                FROM dbo.EngineeringReconciliation e
-                JOIN dbo.Assets a ON e.AssetID = a.SegmentID
+                    e.NoteID              as "NoteID",
+                    e.Timestamp           as "Timestamp",
+                    e.ReconcilerID        as "ReconcilerID",
+                    e.ReconcilerName      as "ReconcilerName",
+                    e.AssetID             as "AssetID",
+                    a.Name                as "AssetName",
+                    e.QI_Status           as "QI_Status",
+                    e.NoteText            as "NoteText",
+                    e.VersionNumber       as "VersionNumber",
+                    e.SupersededByID      as "SupersededByID",
+                    e.Status              as "Status",
+                    e.ReadingID           as "ReadingID",
+                    e.OriginalDataHash    as "OriginalDataHash",
+                    e.ReconciliationHash  as "ReconciliationHash"
+                FROM EngineeringReconciliation e
+                JOIN Assets a ON e.AssetID = a.SegmentID
                 ORDER BY e.Timestamp DESC
             """
             cursor.execute(query)
@@ -2304,8 +2303,8 @@ with tab_notes:
             version_number = 1
             if supersedes_id:
                 cursor.execute("""
-                    SELECT VersionNumber FROM dbo.EngineeringReconciliation
-                    WHERE NoteID = ?
+                    SELECT VersionNumber FROM EngineeringReconciliation
+                    WHERE NoteID = %s
                 """, (supersedes_id,))
                 result = cursor.fetchone()
                 if result:
@@ -2315,7 +2314,7 @@ with tab_notes:
             original_data_hash = None
             if reading_id:
                 cursor.execute("""
-                    SELECT hash_signature FROM dbo.Readings WHERE ReadingID = ?
+                    SELECT hash_signature FROM Readings WHERE ReadingID = %s
                 """, (reading_id,))
                 result = cursor.fetchone()
                 if result:
@@ -2330,11 +2329,11 @@ with tab_notes:
 
             # Insert new note with hash sealing
             cursor.execute("""
-                INSERT INTO dbo.EngineeringReconciliation
+                INSERT INTO EngineeringReconciliation
                 (ReconcilerID, ReconcilerName, AssetID, QI_Status, NoteText, VersionNumber,
                  Status, ReadingID, OriginalDataHash, ReconciliationHash)
-                OUTPUT INSERTED.NoteID
-                VALUES (?, ?, ?, ?, ?, ?, 'CURRENT', ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, 'CURRENT', %s, %s, %s)
+                RETURNING NoteID
             """, (reconciler_id, reconciler_name, asset_id, qi_status, note_text, version_number,
                   reading_id, original_data_hash, reconciliation_hash))
 
@@ -2344,9 +2343,9 @@ with tab_notes:
             # The trigger allows ONLY these two fields to be updated
             if supersedes_id:
                 cursor.execute("""
-                    UPDATE dbo.EngineeringReconciliation
-                    SET SupersededByID = ?, Status = 'SUPERSEDED'
-                    WHERE NoteID = ?
+                    UPDATE EngineeringReconciliation
+                    SET SupersededByID = %s, Status = 'SUPERSEDED'
+                    WHERE NoteID = %s
                 """, (new_note_id, supersedes_id))
 
             conn.commit()
@@ -2390,7 +2389,7 @@ with tab_notes:
             db_conn = get_default_connection()
             with db_conn as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT UserID, FirstName + ' ' + LastName as Name FROM dbo.Users")
+                cursor.execute('SELECT UserID as "UserID", FirstName || \' \' || LastName as "Name" FROM Users')
                 users = cursor.fetchall()
             user_options = {row.Name: row.UserID for row in users}
             selected_user = st.selectbox("Engineer/Reconciler *", options=list(user_options.keys()))
@@ -2413,9 +2412,14 @@ with tab_notes:
             with db_conn as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT TOP 50 ReadingID, SegmentID, Timestamp, PressurePSIG, MAOP_PSIG
-                    FROM dbo.Readings
+                    SELECT ReadingID    as "ReadingID",
+                           SegmentID   as "SegmentID",
+                           Timestamp   as "Timestamp",
+                           PressurePSIG as "PressurePSIG",
+                           MAOP_PSIG   as "MAOP_PSIG"
+                    FROM Readings
                     ORDER BY Timestamp DESC
+                    LIMIT 50
                 """)
                 readings = cursor.fetchall()
 
@@ -2586,16 +2590,18 @@ with tab_notes:
                         # Supersede button (only for CURRENT notes)
                         if note['Status'] == 'CURRENT':
                             if st.button(f"📝 Supersede with Correction", key=f"supersede_{note['NoteID']}", use_container_width=True):
-                                st.session_state[f'superseding_{note['NoteID']}'] = True
+                                note_id = note['NoteID']
+                                st.session_state[f'superseding_{note_id}'] = True
                                 st.rerun()
 
                             # Show supersede form if button was clicked
-                            if st.session_state.get(f'superseding_{note['NoteID']}', False):
-                                with st.form(f"supersede_form_{note['NoteID']}", clear_on_submit=True):
-                                    st.markdown(f"**Superseding Note ID {note['NoteID']} (Version {note['VersionNumber']})**")
+                            note_id = note['NoteID']
+                            if st.session_state.get(f'superseding_{note_id}', False):
+                                with st.form(f"supersede_form_{note_id}", clear_on_submit=True):
+                                    st.markdown(f"**Superseding Note ID {note_id} (Version {note['VersionNumber']})**")
                                     correction_text = st.text_area(
                                         "Correction Note",
-                                        placeholder=f"Example: 'Correction to Note #{note['NoteID']}: The issue was not a power surge, but a faulty sensor. Replaced sensor A-101. Work Order #555.'",
+                                        placeholder=f"Example: 'Correction to Note #{note_id}: The issue was not a power surge, but a faulty sensor. Replaced sensor A-101. Work Order #555.'",
                                         height=100
                                     )
                                     super_col1, super_col2 = st.columns(2)
@@ -2610,16 +2616,16 @@ with tab_notes:
                                                         qi_status=note['QI_Status'],
                                                         note_text=correction_text,
                                                         reading_id=note.get('ReadingID'),
-                                                        supersedes_id=note['NoteID']
+                                                        supersedes_id=note_id
                                                     )
-                                                    st.session_state[f'superseding_{note['NoteID']}'] = False
+                                                    st.session_state[f'superseding_{note_id}'] = False
                                                     st.success(f"✓ Correction added as Version {note['VersionNumber'] + 1} with cryptographic seal")
                                                     st.rerun()
                                                 except Exception as e:
                                                     st.error(f"Error: {e}")
                                     with super_col2:
                                         if st.form_submit_button("Cancel", use_container_width=True):
-                                            st.session_state[f'superseding_{note['NoteID']}'] = False
+                                            st.session_state[f'superseding_{note_id}'] = False
                                             st.rerun()
 
                     st.markdown("---")

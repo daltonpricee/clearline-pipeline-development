@@ -62,9 +62,10 @@ def get_latest_hash():
     with db_conn as conn:
         cursor = conn.cursor()
         query = """
-            SELECT TOP 1 hash_signature
-            FROM dbo.Readings
+            SELECT hash_signature
+            FROM Readings
             ORDER BY ReadingID DESC
+            LIMIT 1
         """
         cursor.execute(query)
         result = cursor.fetchone()
@@ -110,11 +111,11 @@ def insert_reading_with_hash(timestamp, segment_id, sensor_id, pressure_psig,
         cursor = conn.cursor()
 
         query = """
-            INSERT INTO dbo.Readings
+            INSERT INTO Readings
             (Timestamp, SegmentID, SensorID, PressurePSIG, MAOP_PSIG,
              RecordedBy, DataSource, DataQuality, Notes, hash_signature)
-            OUTPUT INSERTED.ReadingID
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING ReadingID
         """
 
         cursor.execute(query, (
@@ -145,9 +146,12 @@ def verify_hash_chain(verbose=False):
 
         # Get all readings ordered by ReadingID
         query = """
-            SELECT ReadingID, Timestamp, SegmentID, SensorID, PressurePSIG,
-                   MAOP_PSIG, RecordedBy, DataSource, hash_signature
-            FROM dbo.Readings
+            SELECT ReadingID as "ReadingID", Timestamp as "Timestamp",
+                   SegmentID as "SegmentID", SensorID as "SensorID",
+                   PressurePSIG as "PressurePSIG", MAOP_PSIG as "MAOP_PSIG",
+                   RecordedBy as "RecordedBy", DataSource as "DataSource",
+                   hash_signature
+            FROM Readings
             ORDER BY ReadingID ASC
         """
         cursor.execute(query)
@@ -205,9 +209,11 @@ def rebuild_hash_chain():
 
         # Get all readings ordered by ReadingID
         query = """
-            SELECT ReadingID, Timestamp, SegmentID, SensorID, PressurePSIG,
-                   MAOP_PSIG, RecordedBy, DataSource
-            FROM dbo.Readings
+            SELECT ReadingID as "ReadingID", Timestamp as "Timestamp",
+                   SegmentID as "SegmentID", SensorID as "SensorID",
+                   PressurePSIG as "PressurePSIG", MAOP_PSIG as "MAOP_PSIG",
+                   RecordedBy as "RecordedBy", DataSource as "DataSource"
+            FROM Readings
             ORDER BY ReadingID ASC
         """
         cursor.execute(query)
@@ -231,9 +237,9 @@ def rebuild_hash_chain():
 
             # Update the hash in database
             update_query = """
-                UPDATE dbo.Readings
-                SET hash_signature = ?
-                WHERE ReadingID = ?
+                UPDATE Readings
+                SET hash_signature = %s
+                WHERE ReadingID = %s
             """
             cursor.execute(update_query, (new_hash, reading.ReadingID))
 

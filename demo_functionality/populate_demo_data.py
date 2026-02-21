@@ -25,7 +25,7 @@ def clear_all_data():
 
         # Delete in order to respect foreign keys
         try:
-            cursor.execute("DELETE FROM dbo.Compliance")
+            cursor.execute("DELETE FROM Compliance")
             print("  OK: Cleared Compliance")
         except Exception as e:
             print(f"  ⚠ Compliance: {e}")
@@ -33,29 +33,29 @@ def clear_all_data():
         # AuditTrail is immutable - skip it (accumulates over demos)
         print("  ⓘ AuditTrail is immutable (skipping - audit logs accumulate)")
 
-        cursor.execute("DELETE FROM dbo.Readings")
+        cursor.execute("DELETE FROM Readings")
         print("  OK:Cleared Readings")
 
         try:
-            cursor.execute("DELETE FROM dbo.PressureTestRecords")
+            cursor.execute("DELETE FROM PressureTestRecords")
             print("  OK:Cleared PressureTestRecords")
         except Exception as e:
             print(f"  ⚠ PressureTestRecords: {e}")
 
-        cursor.execute("DELETE FROM dbo.Sensors")
+        cursor.execute("DELETE FROM Sensors")
         print("  OK:Cleared Sensors")
 
-        cursor.execute("DELETE FROM dbo.Assets")
+        cursor.execute("DELETE FROM Assets")
         print("  OK:Cleared Assets")
 
         # Users might be referenced by AuditTrail (which we can't delete)
         try:
             cursor.execute("""
-                DELETE FROM dbo.Users
-                WHERE UserID NOT IN (SELECT DISTINCT UserID FROM dbo.AuditTrail WHERE UserID IS NOT NULL)
+                DELETE FROM Users
+                WHERE UserID NOT IN (SELECT DISTINCT UserID FROM AuditTrail WHERE UserID IS NOT NULL)
             """)
             deleted = cursor.rowcount
-            cursor.execute("SELECT COUNT(*) FROM dbo.Users")
+            cursor.execute("SELECT COUNT(*) FROM Users")
             remaining = cursor.fetchone()[0]
             print(f"  OK:Cleared {deleted} Users (kept {remaining} users referenced in AuditTrail)")
         except Exception as e:
@@ -83,14 +83,14 @@ def populate_users():
 
         for first, last, email, role in users:
             # Check if user already exists
-            cursor.execute("SELECT UserID FROM dbo.Users WHERE Email = ?", (email,))
+            cursor.execute("SELECT UserID FROM Users WHERE Email = %s", (email,))
             existing = cursor.fetchone()
 
             if not existing:
                 cursor.execute("""
-                    INSERT INTO dbo.Users (FirstName, LastName, Email, Role)
-                    OUTPUT INSERTED.UserID
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO Users (FirstName, LastName, Email, Role)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING UserID
                 """, (first, last, email, role))
                 cursor.fetchone()
                 created += 1
@@ -118,14 +118,13 @@ def populate_assets():
 
         for asset_data in assets:
             cursor.execute("""
-                INSERT INTO dbo.Assets
+                INSERT INTO Assets
                 (SegmentID, Name, PipeGrade, DiameterInches, WallThicknessInches,
                  SeamType, HeatNumber, Manufacturer, MTR_Link, GPSLatitude, GPSLongitude,
                  MAOP_PSIG, ClassLocation, Jurisdiction)
-                OUTPUT INSERTED.AssetID
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (SegmentID) DO NOTHING
             """, asset_data)
-            cursor.fetchone()
 
         conn.commit()
 
@@ -150,13 +149,12 @@ def populate_sensors():
 
         for sensor_data in sensors:
             cursor.execute("""
-                INSERT INTO dbo.Sensors
+                INSERT INTO Sensors
                 (SerialNumber, SegmentID, LastCalibrationDate, CalibrationCertLink,
                  CalibratedBy, HealthScore)
-                OUTPUT INSERTED.SensorID
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (SerialNumber) DO NOTHING
             """, sensor_data)
-            cursor.fetchone()
 
         conn.commit()
 
@@ -170,10 +168,10 @@ def get_sensor_id(segment_id):
     with db_conn as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT SensorID FROM dbo.Sensors WHERE SegmentID = ?
+            SELECT SensorID FROM Sensors WHERE SegmentID = %s
         """, (segment_id,))
         result = cursor.fetchone()
-        return result.SensorID if result else None
+        return result[0] if result else None
 
 
 def populate_readings_with_story():
@@ -332,16 +330,16 @@ def populate_operator_acknowledgment():
         cursor = conn.cursor()
 
         # Get operator user ID
-        cursor.execute("SELECT UserID FROM dbo.Users WHERE FirstName = 'John' AND LastName = 'Operator'")
-        operator_id = cursor.fetchone().UserID
+        cursor.execute("SELECT UserID FROM Users WHERE FirstName = 'John' AND LastName = 'Operator'")
+        operator_id = cursor.fetchone()[0]
 
         # Create audit entry
         ack_time = datetime(2026, 1, 18, 10, 8, 0)
 
         cursor.execute("""
-            INSERT INTO dbo.AuditTrail
+            INSERT INTO AuditTrail
             (Timestamp, UserID, EventType, TableAffected, RecordID, Details, ChangeReason)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             ack_time,
             operator_id,
