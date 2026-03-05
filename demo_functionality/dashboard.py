@@ -24,8 +24,6 @@ st.set_page_config(
 )
 
 # Initialize session state
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
 if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = False
 if 'demo_step' not in st.session_state:
@@ -44,40 +42,22 @@ if 'selected_segments' not in st.session_state:
     st.session_state.selected_segments = []
 if 'time_range' not in st.session_state:
     st.session_state.time_range = '24h'
-if 'comparison_mode' not in st.session_state:
-    st.session_state.comparison_mode = False
 
-# iOS-Inspired Professional Color Scheme
-if st.session_state.dark_mode:
-    # Dark Mode - iOS inspired
-    bg_color = "#000000"
-    header_bg = "#1c1c1e"
-    text_color = "#ffffff"
-    card_bg = "#1c1c1e"
-    plot_bg = "#1c1c1e"
-    metric_color = "#ffffff"
-    label_color = "#98989d"
-    border_color = "#38383a"
-    accent_color = "#0a84ff"  # iOS blue
-    success_color = "#32d74b"  # iOS green
-    warning_color = "#ff9f0a"  # iOS orange
-    danger_color = "#ff453a"  # iOS red
-    secondary_bg = "#2c2c2e"
-else:
-    # Light Mode - iOS inspired
-    bg_color = "#f2f2f7"
-    header_bg = "#ffffff"
-    text_color = "#000000"
-    card_bg = "#ffffff"
-    plot_bg = "#ffffff"
-    metric_color = "#000000"
-    label_color = "#8e8e93"
-    border_color = "#d1d1d6"
-    accent_color = "#007aff"  # iOS blue
-    success_color = "#34c759"  # iOS green
-    warning_color = "#ff9500"  # iOS orange
-    danger_color = "#ff3b30"  # iOS red
-    secondary_bg = "#f2f2f7"
+
+# iOS-Inspired Professional Color Scheme (Light Mode)
+bg_color = "#f2f2f7"
+header_bg = "#ffffff"
+text_color = "#000000"
+card_bg = "#ffffff"
+plot_bg = "#ffffff"
+metric_color = "#000000"
+label_color = "#8e8e93"
+border_color = "#d1d1d6"
+accent_color = "#007aff"  # iOS blue
+success_color = "#34c759"  # iOS green
+warning_color = "#ff9500"  # iOS orange
+danger_color = "#ff3b30"  # iOS red
+secondary_bg = "#f2f2f7"
 
 # World-Class Design System
 # Design Principles Applied:
@@ -147,8 +127,13 @@ st.markdown(f"""
 
     [data-testid="stSidebar"] .block-container {{
         padding-top: 0 !important;
-        padding-left: 1.25rem !important;
-        padding-right: 1.25rem !important;
+        padding-left: 1.75rem !important;
+        padding-right: 1.75rem !important;
+    }}
+
+    /* Sidebar text color */
+    [data-testid="stSidebar"] * {{
+        color: {text_color} !important;
     }}
 
     /* iOS-style Header */
@@ -296,29 +281,37 @@ st.markdown(f"""
         left: 0;
         right: 0;
         height: 2px;
-        background: linear-gradient(90deg, {accent_color} 0%, {'#0051d5' if not st.session_state.dark_mode else '#3a9aff'} 100%);
+        background: linear-gradient(90deg, {accent_color} 0%, #0051d5 100%);
     }}
 
-    /* Custom scrollbar for tabs */
+    /* Custom scrollbar for tabs — always visible on macOS */
+    .stTabs [data-baseweb="tab-list"] {{
+        overflow-x: scroll !important;
+        flex-wrap: nowrap !important;
+        display: flex !important;
+        scrollbar-width: thin !important;
+        scrollbar-color: {accent_color} {secondary_bg} !important;
+    }}
+
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{
-        height: 8px;
-        background: transparent;
+        height: 6px !important;
+        -webkit-appearance: none !important;
+        display: block !important;
     }}
 
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-track {{
-        background: {secondary_bg};
-        border-radius: 10px;
-        margin: 0 4px;
+        background: {secondary_bg} !important;
+        border-radius: 10px !important;
     }}
 
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-thumb {{
-        background: {accent_color}60;
-        border-radius: 10px;
-        border: 2px solid {secondary_bg};
+        background: {accent_color} !important;
+        border-radius: 10px !important;
+        min-width: 40px !important;
     }}
 
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-thumb:hover {{
-        background: {accent_color}90;
+        background: {accent_color}cc !important;
     }}
 
     .stTabs [data-baseweb="tab"] {{
@@ -586,90 +579,15 @@ st.markdown(f"""
         gap: var(--space-lg);
     }}
 
-    /* Professional Select boxes - Swiss Design Clarity */
+    /* Selectbox */
     .stSelectbox > div > div {{
         border-radius: 8px;
         border: 1px solid {border_color};
         background: {card_bg};
         font-size: 0.875rem;
-        padding: 0.625rem;
         transition: all 0.15s ease;
-        color: {text_color} !important;
     }}
 
-    .stSelectbox label {{
-        color: {text_color} !important;
-    }}
-
-    /* Target the selected value display - Multiple selectors for coverage */
-    .stSelectbox [data-baseweb="select"] {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox [data-baseweb="select"] > div {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox [data-baseweb="select"] span {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox [data-baseweb="select"] * {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox div[role="button"] {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox div[role="button"] > div {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox div[role="button"] span {{
-        color: {text_color} !important;
-    }}
-
-    .stSelectbox div[role="button"] * {{
-        color: {text_color} !important;
-    }}
-
-    /* Target input element if present */
-    .stSelectbox input {{
-        color: {text_color} !important;
-    }}
-
-    /* Force all text inside selectbox to be visible */
-    .stSelectbox * {{
-        color: {text_color} !important;
-    }}
-
-    /* SUPER AGGRESSIVE: Target Streamlit's select value text */
-    [class*="singleValue"],
-    [class*="singleValue"] *,
-    [data-baseweb="select"] [class*="singleValue"],
-    [data-baseweb="select"] [class*="singleValue"] *,
-    div[data-baseweb="select"] > div > div,
-    div[data-baseweb="select"] > div > div > div {{
-        color: {text_color} !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
-    }}
-
-    /* Force text to be visible in select components */
-    [role="combobox"] *,
-    [role="button"] div {{
-        color: {text_color} !important;
-        opacity: 1 !important;
-    }}
-
-    /* Override any inline styles */
-    .stSelectbox div[style] {{
-        color: {text_color} !important;
-    }}
-
-    /* Hover and Focus States */
     .stSelectbox > div > div:hover {{
         border-color: {accent_color}60;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -777,7 +695,7 @@ with st.sidebar:
             <div style="width: 6px; height: 6px; border-radius: 50%; background: {success_color};
                        box-shadow: 0 0 8px {success_color}60;"></div>
             <span style="font-size: 0.6875rem; color: {text_color}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;">
-                LIVE • {datetime.now().strftime('%I:%M:%S %p')}
+                LIVE • {datetime.now().strftime('%I:%M %p')}
             </span>
         </div>
     </div>
@@ -785,24 +703,19 @@ with st.sidebar:
 
     # Settings Section
     st.markdown(f"""
-    <div style="margin: 1.5rem 0 0.75rem 0;">
-        <h3 style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
-                   text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin: 1.75rem 0 0.75rem 0;">
+        <div style="width: 3px; height: 14px; background: {accent_color}; border-radius: 2px; flex-shrink: 0;"></div>
+        <span style="font-size: 0.75rem; font-weight: 700; color: {text_color};
+                     text-transform: uppercase; letter-spacing: 0.06em;">
             Settings
-        </h3>
+        </span>
     </div>
     """, unsafe_allow_html=True)
-
-    # Theme toggle - styled button
-    theme_label = "☀️ Light Mode" if st.session_state.dark_mode else "🌙 Dark Mode"
-    if st.button(theme_label, key="theme_toggle", use_container_width=True):
-        st.session_state.dark_mode = not st.session_state.dark_mode
-        st.rerun()
 
     # Time range selector
     st.markdown(f"""
     <div style="margin: 1.5rem 0 0.5rem 0;">
-        <label style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
+        <label style="font-size: 0.6875rem; font-weight: 600; color: {text_color};
                       text-transform: uppercase; letter-spacing: 0.08em; display: block;">
             Time Range
         </label>
@@ -842,16 +755,24 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    # Comparison mode
+    # Divider
     st.markdown(f"""
-    <div style="margin: 1.5rem 0 0.5rem 0;">
-        <label style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
-                      text-transform: uppercase; letter-spacing: 0.08em; display: block;">
-            Display Options
-        </label>
+    <div style="border-bottom: 1px solid {border_color}; margin: 1.5rem 0;"></div>
+    """, unsafe_allow_html=True)
+
+    # Cost Parameters Section
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin: 1.75rem 0 0.75rem 0;">
+        <div style="width: 3px; height: 14px; background: {accent_color}; border-radius: 2px; flex-shrink: 0;"></div>
+        <span style="font-size: 0.75rem; font-weight: 700; color: {text_color};
+                     text-transform: uppercase; letter-spacing: 0.06em;">
+            Cost Parameters
+        </span>
     </div>
     """, unsafe_allow_html=True)
-    st.session_state.comparison_mode = st.checkbox("Comparison View", value=False)
+    violation_fine = st.number_input("Violation Fine ($)", value=25000, step=1000, min_value=0, label_visibility="visible")
+    critical_cost_per = st.number_input("Critical Event Cost ($)", value=5000, step=500, min_value=0, label_visibility="visible")
+    preventive_rate = st.number_input("Preventive Savings ($/reading)", value=100, step=10, min_value=0, label_visibility="visible")
 
     # Divider
     st.markdown(f"""
@@ -860,22 +781,21 @@ with st.sidebar:
 
     # Help & Support Section
     st.markdown(f"""
-    <div style="margin: 1.5rem 0 0.75rem 0;">
-        <h3 style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
-                   text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin: 1.75rem 0 0.75rem 0;">
+        <div style="width: 3px; height: 14px; background: {accent_color}; border-radius: 2px; flex-shrink: 0;"></div>
+        <span style="font-size: 0.75rem; font-weight: 700; color: {text_color};
+                     text-transform: uppercase; letter-spacing: 0.06em;">
             Help & Support
-        </h3>
+        </span>
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("Start Onboarding Tour", use_container_width=True):
-        st.session_state.show_help = True
-        st.session_state.demo_mode = True
-        st.session_state.demo_step = 0
+    help_label = "Hide Getting Started" if st.session_state.show_help else "Getting Started Guide"
+    if st.button(help_label, use_container_width=True):
+        st.session_state.show_help = not st.session_state.show_help
         st.rerun()
 
-    if st.button("Documentation", use_container_width=True):
-        st.info("Documentation: https://clearline.com/docs")
+    st.link_button("Documentation →", url="https://clearline.com/docs", use_container_width=True)
 
     # Divider
     st.markdown(f"""
@@ -884,11 +804,12 @@ with st.sidebar:
 
     # System Status Section
     st.markdown(f"""
-    <div style="margin: 1.5rem 0 0.75rem 0;">
-        <h3 style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
-                   text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin: 1.75rem 0 0.75rem 0;">
+        <div style="width: 3px; height: 14px; background: {accent_color}; border-radius: 2px; flex-shrink: 0;"></div>
+        <span style="font-size: 0.75rem; font-weight: 700; color: {text_color};
+                     text-transform: uppercase; letter-spacing: 0.06em;">
             System Status
-        </h3>
+        </span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -902,7 +823,7 @@ with st.sidebar:
             </span>
         </div>
         <p style="font-size: 0.6875rem; color: {label_color}; margin: 0; padding-left: 1.125rem;">
-            Last updated: {datetime.now().strftime('%H:%M:%S')}
+            Last updated: {datetime.now().strftime('%H:%M')}
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -925,12 +846,9 @@ st.markdown(f"""
             <div style="text-align: center;">
                 <div style="font-size: 0.6875rem; font-weight: 600; color: {label_color};
                            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.25rem;">
-                    System Time
+                    Today
                 </div>
                 <div style="font-size: 1rem; font-weight: 600; color: {text_color};">
-                    {datetime.now().strftime('%I:%M:%S %p')}
-                </div>
-                <div style="font-size: 0.75rem; color: {label_color};">
                     {datetime.now().strftime('%B %d, %Y')}
                 </div>
             </div>
@@ -962,6 +880,36 @@ st.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+# Getting Started help panel
+if st.session_state.show_help:
+    st.markdown(f"""
+    <div style="background: {accent_color}08; border: 1px solid {accent_color}30;
+                border-left: 4px solid {accent_color}; border-radius: 12px;
+                padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.6875rem; font-weight: 700; color: {accent_color};
+                    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;">
+            Getting Started
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.8125rem; color: {text_color};">
+            <div>
+                <strong style="color: {accent_color};">1. Run the Demo</strong><br>
+                <span style="color: {label_color};">Click "Start Auto-Demo" to walk through a pressure drift scenario step by step.</span>
+            </div>
+            <div>
+                <strong style="color: {accent_color};">2. Explore the Tabs</strong><br>
+                <span style="color: {label_color};">Use Live Monitoring for real-time data, Compliance for audit records, and Infrastructure for system health.</span>
+            </div>
+            <div>
+                <strong style="color: {accent_color};">3. Filter & Configure</strong><br>
+                <span style="color: {label_color};">Use the sidebar to filter by segment, set time ranges, and adjust cost parameters for financial projections.</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Dismiss", key="dismiss_help"):
+        st.session_state.show_help = False
+        st.rerun()
 
 control_col1, control_col2, control_col3 = st.columns([2, 2, 3])
 
@@ -1081,34 +1029,35 @@ if st.session_state.demo_mode:
         status_bg = f"{success_color}20"
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, {status_color} 0%, {status_color}CC 100%);
-                padding: 1.5rem 1.75rem; border-radius: 12px; color: white; margin-bottom: 1.5rem;
-                box-shadow: 0 4px 16px {status_color}40;">
+    <div style="background: {status_color}10;
+                padding: 1.5rem 1.75rem; border-radius: 12px; margin-bottom: 1.5rem;
+                border: 1px solid {status_color}30; border-left: 4px solid {status_color};
+                box-shadow: 0 2px 8px {status_color}15;">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem;">
             <div style="flex: 1;">
-                <div style="font-size: 0.6875rem; font-weight: 700; opacity: 0.95; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;">
+                <div style="font-size: 0.6875rem; font-weight: 700; color: {status_color}; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;">
                     DRIFT STORY DEMO • STEP {st.session_state.demo_timeline_index + 1} OF {len(drift_story)}
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
-                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">
+                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: {text_color};">
                         {current_story["time"]}
                     </h3>
-                    <span style="background: rgba(255,255,255,0.25); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                    <span style="background: {status_color}20; color: {status_color}; border: 1px solid {status_color}40; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
                         {current_story["title"]}
                     </span>
                 </div>
-                <p style="margin: 0 0 0.75rem 0; font-size: 0.9375rem; font-weight: 500; opacity: 0.95;">
+                <p style="margin: 0 0 0.75rem 0; font-size: 0.9375rem; font-weight: 500; color: {text_color};">
                     {current_story["description"]}
                 </p>
-                <div style="background: rgba(0,0,0,0.15); padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.8125rem; line-height: 1.5;">
+                <div style="background: {status_color}08; border: 1px solid {status_color}20; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.8125rem; line-height: 1.5; color: {label_color};">
                     {current_story["details"]}
                 </div>
             </div>
-            <div style="min-width: 200px; background: rgba(255,255,255,0.15); padding: 1rem; border-radius: 10px;">
-                <div style="font-size: 0.6875rem; font-weight: 600; opacity: 0.9; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            <div style="min-width: 200px; background: {status_color}08; border: 1px solid {status_color}20; padding: 1rem; border-radius: 10px;">
+                <div style="font-size: 0.6875rem; font-weight: 600; color: {status_color}; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     Pressure Readings
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8125rem;">
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8125rem; color: {text_color};">
                     <div style="display: flex; justify-content: space-between;"><span>SEG-01:</span><strong>{current_story["seg01"]:.1f} PSIG</strong></div>
                     <div style="display: flex; justify-content: space-between;"><span>SEG-02:</span><strong>{current_story["seg02"]:.1f} PSIG</strong></div>
                     <div style="display: flex; justify-content: space-between;"><span>SEG-03:</span><strong>{current_story["seg03"]:.1f} PSIG</strong></div>
@@ -1125,7 +1074,7 @@ if st.session_state.demo_mode:
             st.session_state.demo_timeline_index = max(0, st.session_state.demo_timeline_index - 1)
             st.rerun()
     with nav_col2:
-        if st.button("🔄 Restart Demo", use_container_width=True):
+        if st.button("Restart Demo", use_container_width=True):
             st.session_state.demo_timeline_index = 0
             st.rerun()
     with nav_col3:
@@ -1588,88 +1537,49 @@ def predict_next_pressure(segment_data):
 
     return future_timestamps, future_pressures, slope
 
-# Add horizontal scrollbar for tabs
-st.markdown(f"""
-<style>
-    /* Make tabs scrollable with visible scrollbar */
-    .stTabs [data-baseweb="tab-list"] {{
-        overflow-x: auto;
-        scroll-behavior: smooth;
-        scrollbar-width: thin;
-        scrollbar-color: {accent_color}40 transparent;
-    }}
-
-    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{
-        height: 6px;
-    }}
-
-    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-track {{
-        background: transparent;
-    }}
-
-    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-thumb {{
-        background: {accent_color}40;
-        border-radius: 3px;
-    }}
-
-    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar-thumb:hover {{
-        background: {accent_color}80;
-    }}
-</style>
-""", unsafe_allow_html=True)
-
-# Create tabs - Professional labels without emojis
-# Engineering Reconciliation moved to position 2 for immediate visibility
-tab_exec, tab_notes, tab_pulse, tab_alerts, tab_map, tab_schematic, tab_alerts_mgmt, tab_ledger, tab_activity, tab_sensors = st.tabs([
-    "Executive Summary",
-    "Engineering Reconciliation",
-    "Live Pulse",
-    "Drift Alerts",
-    "System Map",
-    "Pipeline Schematic",
-    "Alert Management",
-    "Compliance Ledger",
-    "Operator Activity",
-    "Sensor Health"
+# Create tabs — 5 primary tabs with sub-tabs inside each group
+tab_overview, tab_monitoring, tab_compliance, tab_infrastructure, tab_audit = st.tabs([
+    "Overview",
+    "Live Monitoring",
+    "Compliance",
+    "Infrastructure",
+    "Audit Log"
 ])
 
-# TAB 0: EXECUTIVE SUMMARY
-with tab_exec:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Executive Summary</h2>", unsafe_allow_html=True)
+# Declare sub-tabs inside each primary tab
+with tab_monitoring:
+    sub_pulse, sub_alerts, sub_alerts_mgmt = st.tabs(["Live Pulse", "Drift Alerts", "Alert Management"])
+
+with tab_compliance:
+    sub_notes, sub_ledger = st.tabs(["Engineering Reconciliation", "Compliance Ledger"])
+
+with tab_infrastructure:
+    sub_map, sub_schematic, sub_sensors = st.tabs(["System Map", "Pipeline Schematic", "Sensor Health"])
+
+# TAB: OVERVIEW (Executive Summary content)
+with tab_overview:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Real-time compliance overview and financial impact analysis</p>", unsafe_allow_html=True)
 
     df_readings = get_all_readings()
 
     if not df_readings.empty:
-        # Top-level KPIs
-        st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Key Performance Indicators</h3>", unsafe_allow_html=True)
-
-        col1, col2, col3, col4, col5 = st.columns(5)
-
         total_readings = len(df_readings)
         segments = df_readings['SegmentID'].nunique()
         violations = len(df_readings[df_readings['Ratio'] >= 100])
         critical_events = len(df_readings[df_readings['Ratio'] >= 95])
-
         compliance_score = ((total_readings - critical_events) / total_readings * 100) if total_readings > 0 else 100
-
-        col1.metric("Total Readings", f"{total_readings:,}")
-        col2.metric("Pipeline Segments", segments)
-        col3.metric("Compliance Score", f"{compliance_score:.1f}%",
-                   delta=f"{compliance_score - 85:.1f}%", delta_color="normal")
-        col4.metric("Critical Events", critical_events, delta=f"{critical_events}", delta_color="inverse")
-        col5.metric("Violations", violations, delta=f"{violations}", delta_color="inverse")
-
-        st.markdown("---")
 
         # Financial Impact
         st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Financial Impact Analysis</h3>", unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
 
-        violation_cost = violations * 25000
-        critical_cost = critical_events * 5000
-        preventive_savings = (total_readings - critical_events) * 100
+        violation_cost = violations * violation_fine
+        critical_cost = critical_events * critical_cost_per
+        preventive_savings = (total_readings - critical_events) * preventive_rate
+
+        net_impact = preventive_savings - violation_cost - critical_cost
+        roi_percentage = (net_impact / max(1, violation_cost + critical_cost)) * 100 if (violation_cost + critical_cost) > 0 else 0
 
         col1.metric("Violation Fines", f"${violation_cost:,}",
                    help="Estimated regulatory fines for MAOP violations")
@@ -1678,15 +1588,13 @@ with tab_exec:
         col3.metric("Preventive Savings", f"${preventive_savings:,}",
                    help="Savings from early warning and prevention")
 
-        net_impact = preventive_savings - violation_cost - critical_cost
-        roi_percentage = (net_impact / max(1, violation_cost + critical_cost)) * 100 if (violation_cost + critical_cost) > 0 else 0
-
-        st.metric("Net Financial Impact", f"${net_impact:,}",
+        fi_col1, fi_col2, fi_col3 = st.columns(3)
+        fi_col1.metric("Net Financial Impact", f"${net_impact:,}",
                  delta=f"ROI: {roi_percentage:.1f}%",
                  delta_color="normal" if net_impact > 0 else "inverse",
                  help="Total savings minus costs")
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         # Risk Heatmap
         st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Risk Heatmap by Segment</h3>", unsafe_allow_html=True)
@@ -1736,7 +1644,7 @@ with tab_exec:
                 '<extra></extra>'
         ))
 
-        chart_template = 'plotly_dark' if st.session_state.dark_mode else 'plotly_white'
+        chart_template = 'plotly_white'
 
         fig_heatmap.update_layout(
             xaxis=dict(title="Pipeline Segment", gridcolor=border_color),
@@ -1756,8 +1664,7 @@ with tab_exec:
 
 
 # TAB 1: LIVE PULSE
-with tab_pulse:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Live Pulse</h2>", unsafe_allow_html=True)
+with sub_pulse:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Real-time pressure monitoring with AI-powered predictive analytics</p>", unsafe_allow_html=True)
 
     df_readings = get_all_readings()
@@ -1810,7 +1717,7 @@ with tab_pulse:
                 hoverinfo='skip'
             ))
 
-        chart_template = 'plotly_dark' if st.session_state.dark_mode else 'plotly_white'
+        chart_template = 'plotly_white'
 
         fig.update_layout(
             xaxis=dict(title="Time", gridcolor=border_color),
@@ -1841,8 +1748,7 @@ with tab_pulse:
 
 
 # TAB 2: DRIFT ALERTS
-with tab_alerts:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Drift Alerts</h2>", unsafe_allow_html=True)
+with sub_alerts:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Critical threshold crossings with smart filtering</p>", unsafe_allow_html=True)
 
     df_alerts = get_drift_alerts()
@@ -1857,7 +1763,7 @@ with tab_alerts:
         col2.metric("Critical Events", critical_alerts)
         col3.metric("Affected Segments", affected_segments)
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Smart Filtering Analysis</h3>", unsafe_allow_html=True)
 
@@ -1887,8 +1793,7 @@ with tab_alerts:
 
 
 # TAB 3: SYSTEM MAP
-with tab_map:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>System Map</h2>", unsafe_allow_html=True)
+with sub_map:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>GPS visualization with real-time status indicators</p>", unsafe_allow_html=True)
 
     df_assets = get_assets_with_gps()
@@ -1905,7 +1810,7 @@ with tab_map:
         col3.metric("Warning/Critical", segments_warning + segments_critical)
         col4.metric("Violations", len(df_assets[df_assets['Status'] == 'VIOLATION']))
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         fig_map = go.Figure()
 
@@ -1932,7 +1837,7 @@ with tab_map:
         center_lat = df_assets['GPSLatitude'].mean()
         center_lon = df_assets['GPSLongitude'].mean()
 
-        chart_template = 'plotly_dark' if st.session_state.dark_mode else 'plotly_white'
+        chart_template = 'plotly_white'
 
         fig_map.update_layout(
             geo=dict(
@@ -1940,7 +1845,7 @@ with tab_map:
                 center=dict(lat=center_lat, lon=center_lon),
                 projection_scale=15,
                 showland=True,
-                landcolor='rgb(243, 243, 243)' if not st.session_state.dark_mode else 'rgb(30, 30, 30)'
+                landcolor='rgb(243, 243, 243)'
             ),
             height=500,
             template=chart_template,
@@ -1953,8 +1858,7 @@ with tab_map:
 
 
 # TAB 4: PIPELINE SCHEMATIC
-with tab_schematic:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Pipeline Schematic</h2>", unsafe_allow_html=True)
+with sub_schematic:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Network topology and flow characteristics</p>", unsafe_allow_html=True)
 
     df_assets = get_assets_with_gps()
@@ -2010,7 +1914,7 @@ with tab_schematic:
                     textfont=dict(size=10, color='white', family='Inter')
                 ))
 
-        chart_template = 'plotly_dark' if st.session_state.dark_mode else 'plotly_white'
+        chart_template = 'plotly_white'
 
         fig_schematic.update_layout(
             xaxis=dict(showgrid=False, showticklabels=False, zeroline=False, range=[0.5, 3.5]),
@@ -2024,7 +1928,7 @@ with tab_schematic:
 
         st.plotly_chart(fig_schematic, use_container_width=True)
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Avg Pressure", f"{df_assets['CurrentPressure'].mean():.1f} PSIG")
@@ -2036,8 +1940,7 @@ with tab_schematic:
 
 
 # TAB 5: ALERT MANAGEMENT
-with tab_alerts_mgmt:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Alert Management</h2>", unsafe_allow_html=True)
+with sub_alerts_mgmt:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Inbox-style workflow for compliance tracking</p>", unsafe_allow_html=True)
 
     df_all_alerts = get_unacknowledged_alerts()
@@ -2054,7 +1957,7 @@ with tab_alerts_mgmt:
         col3.metric("Acknowledged", acknowledged_alerts)
         col4.metric("Violations", violation_alerts)
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         inbox_tab1, inbox_tab2 = st.tabs(["Pending", "All Alerts"])
 
@@ -2116,8 +2019,7 @@ with tab_alerts_mgmt:
 
 
 # TAB 6: COMPLIANCE LEDGER
-with tab_ledger:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Compliance Ledger</h2>", unsafe_allow_html=True)
+with sub_ledger:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Cryptographic hash chain verification</p>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([1, 3])
@@ -2150,8 +2052,7 @@ with tab_ledger:
 
 
 # TAB 7: OPERATOR ACTIVITY
-with tab_activity:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Operator Activity</h2>", unsafe_allow_html=True)
+with tab_audit:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Audit trail and response time monitoring</p>", unsafe_allow_html=True)
 
     df_activity = get_operator_activity()
@@ -2168,7 +2069,7 @@ with tab_activity:
         col3.metric("Acknowledgments", len(df_activity[df_activity['ActionType'] == 'OPERATOR_ACKNOWLEDGMENT']))
         col4.metric("Last Action", f"{hours_ago:.1f}h ago")
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         df_display = df_activity.copy()
         df_display['Timestamp'] = pd.to_datetime(df_display['Timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -2183,8 +2084,7 @@ with tab_activity:
 
 
 # TAB 8: SENSOR HEALTH
-with tab_sensors:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Sensor Health</h2>", unsafe_allow_html=True)
+with sub_sensors:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Calibration status and predictive maintenance</p>", unsafe_allow_html=True)
 
     df_sensors = get_sensor_health()
@@ -2201,7 +2101,7 @@ with tab_sensors:
         col3.metric("Due Soon", sensors_due)
         col4.metric("Overdue", sensors_overdue)
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         fig_health = go.Figure()
         colors = [success_color if score >= 95 else warning_color if score >= 85 else danger_color
@@ -2215,7 +2115,7 @@ with tab_sensors:
             textposition='outside'
         ))
 
-        chart_template = 'plotly_dark' if st.session_state.dark_mode else 'plotly_white'
+        chart_template = 'plotly_white'
 
         fig_health.update_layout(
             xaxis=dict(title="Segment"),
@@ -2229,7 +2129,7 @@ with tab_sensors:
 
         st.plotly_chart(fig_health, use_container_width=True)
 
-        st.markdown("---")
+        st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
         df_display = df_sensors.copy()
         df_display['LastCalibrationDate'] = pd.to_datetime(df_display['LastCalibrationDate']).dt.strftime('%Y-%m-%d')
@@ -2244,8 +2144,7 @@ with tab_sensors:
 
 
 # TAB 9: ENGINEERING RECONCILIATION (Immutable Ledger)
-with tab_notes:
-    st.markdown(f"<h2 style='margin-bottom: 0.5rem;'>Engineering Reconciliation</h2>", unsafe_allow_html=True)
+with sub_notes:
     st.markdown(f"""
     <p style='color: {label_color}; margin-bottom: 1.5rem;'>
         Immutable engineering notes with version control. Cannot edit - only supersede with corrections.
@@ -2628,7 +2527,7 @@ with tab_notes:
                                             st.session_state[f'superseding_{note_id}'] = False
                                             st.rerun()
 
-                    st.markdown("---")
+                    st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
         else:
             st.info("No engineering notes yet. Add your first note above!")
 
