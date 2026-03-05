@@ -23,6 +23,49 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- Authentication Gate ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: none; }
+        .block-container { max-width: 420px; margin: 8rem auto; }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #007aff;
+                    display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <span style="font-size: 1rem; font-weight: 800; color: #ffffff; letter-spacing: -0.03em;">CL</span>
+        </div>
+        <div>
+            <div style="font-size: 1.125rem; font-weight: 700; color: #000000; letter-spacing: -0.02em; line-height: 1.2;">
+                ClearLine
+            </div>
+            <div style="font-size: 0.75rem; color: #8e8e93; font-weight: 400; letter-spacing: 0.01em;">
+                Pipeline Integrity Management
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("Enter your credentials to continue.")
+    with st.form("login"):
+        password = st.text_input("Password", type="password", placeholder="Enter password")
+        submitted = st.form_submit_button("Sign In", use_container_width=True, type="primary")
+        if submitted:
+            try:
+                correct = st.secrets["APP_PASSWORD"]
+            except Exception:
+                correct = os.environ.get("APP_PASSWORD", "")
+            if correct and password == correct:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect password. Please try again.")
+    st.stop()
+
 # Initialize session state
 if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = False
@@ -40,8 +83,6 @@ if 'onboarding_complete' not in st.session_state:
     st.session_state.onboarding_complete = False
 if 'selected_segments' not in st.session_state:
     st.session_state.selected_segments = []
-if 'time_range' not in st.session_state:
-    st.session_state.time_range = '24h'
 
 
 # iOS-Inspired Professional Color Scheme (Light Mode)
@@ -712,31 +753,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Time range selector
-    st.markdown(f"""
-    <div style="margin: 1.5rem 0 0.5rem 0;">
-        <label style="font-size: 0.6875rem; font-weight: 600; color: {text_color};
-                      text-transform: uppercase; letter-spacing: 0.08em; display: block;">
-            Time Range
-        </label>
-    </div>
-    """, unsafe_allow_html=True)
-
-    time_options = {
-        '1h': 'Last Hour',
-        '24h': 'Last 24 Hours',
-        '7d': 'Last 7 Days',
-        '30d': 'Last 30 Days',
-        'all': 'All Time'
-    }
-    st.session_state.time_range = st.selectbox(
-        "Select Time Range",
-        options=list(time_options.keys()),
-        format_func=lambda x: time_options[x],
-        index=1,
-        label_visibility="collapsed"
-    )
-
     # Segment filter
     st.markdown(f"""
     <div style="margin: 1.5rem 0 0.5rem 0;">
@@ -828,6 +844,11 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown(f"<div style='border-bottom: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+    if st.button("Sign out", use_container_width=True):
+        st.session_state.authenticated = False
+        st.rerun()
+
 # Enhanced Header with Gradient Accent
 st.markdown(f"""
 <div style="background: {header_bg}; padding: 1.5rem 2rem; border-radius: 12px; margin-bottom: 1.5rem;
@@ -871,16 +892,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Clean Demo Controls
-st.markdown(f"""
-<div style="background: {card_bg}; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;
-            border: 0.5px solid {border_color}; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <span style="font-size: 0.875rem; font-weight: 600; color: {text_color};">Demo Controls:</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
 # Getting Started help panel
 if st.session_state.show_help:
     st.markdown(f"""
@@ -902,7 +913,7 @@ if st.session_state.show_help:
             </div>
             <div>
                 <strong style="color: {accent_color};">3. Filter & Configure</strong><br>
-                <span style="color: {label_color};">Use the sidebar to filter by segment, set time ranges, and adjust cost parameters for financial projections.</span>
+                <span style="color: {label_color};">Use the sidebar to filter by segment and adjust cost parameters for financial projections.</span>
             </div>
         </div>
     </div>
@@ -1593,6 +1604,10 @@ with tab_overview:
                  delta=f"ROI: {roi_percentage:.1f}%",
                  delta_color="normal" if net_impact > 0 else "inverse",
                  help="Total savings minus costs")
+        fi_col2.metric("Compliance Score", f"{compliance_score:.1f}%",
+                 help="Percentage of readings within safe operating limits")
+        fi_col3.metric("Readings Monitored", f"{total_readings:,}",
+                 help="Total pressure readings in the dataset")
 
         st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
