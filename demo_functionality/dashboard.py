@@ -31,7 +31,14 @@ if not st.session_state.authenticated:
     st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: none; }
-        .block-container { max-width: 420px; margin: 8rem auto; }
+        .block-container {
+            max-width: 420px !important;
+            width: 100% !important;
+            margin: 6rem auto !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+            box-sizing: border-box !important;
+        }
     </style>
     """, unsafe_allow_html=True)
     st.markdown("""
@@ -79,8 +86,6 @@ if 'simulator_interval' not in st.session_state:
     st.session_state.simulator_interval = 5
 if 'show_help' not in st.session_state:
     st.session_state.show_help = False
-if 'onboarding_complete' not in st.session_state:
-    st.session_state.onboarding_complete = False
 if 'selected_segments' not in st.session_state:
     st.session_state.selected_segments = []
 
@@ -764,10 +769,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     all_segments = ['SEG-01', 'SEG-02', 'SEG-03', 'SEG-04']
+    if not st.session_state.selected_segments:
+        st.session_state.selected_segments = all_segments
     st.session_state.selected_segments = st.multiselect(
         "Select Segments",
         options=all_segments,
-        default=all_segments,
+        default=st.session_state.selected_segments,
         label_visibility="collapsed"
     )
 
@@ -811,7 +818,18 @@ with st.sidebar:
         st.session_state.show_help = not st.session_state.show_help
         st.rerun()
 
-    st.link_button("Documentation →", url="https://clearline.com/docs", use_container_width=True)
+    st.markdown(f"""
+    <div style="width: 100%; padding: 0.5rem 0.75rem; border-radius: 8px;
+                border: 1px solid {border_color}; background: {secondary_bg};
+                font-size: 0.875rem; color: {label_color}; text-align: left;
+                display: flex; justify-content: space-between; align-items: center;
+                box-sizing: border-box; cursor: not-allowed;">
+        <span>Documentation</span>
+        <span style="font-size: 0.6875rem; background: {border_color}; color: {label_color};
+                     padding: 0.125rem 0.5rem; border-radius: 4px; font-weight: 600;
+                     text-transform: uppercase; letter-spacing: 0.04em;">Coming Soon</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Divider
     st.markdown(f"""
@@ -845,6 +863,18 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.markdown(f"<div style='border-bottom: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+        div[data-testid="stSidebar"] div[data-testid="stButton"]:last-of-type > button {{
+            color: {danger_color} !important;
+            border-color: {danger_color}40 !important;
+        }}
+        div[data-testid="stSidebar"] div[data-testid="stButton"]:last-of-type > button:hover {{
+            background: {danger_color}10 !important;
+            border-color: {danger_color}80 !important;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
     if st.button("Sign out", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
@@ -1115,7 +1145,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 rules_path = os.path.join(script_dir, "rules.json")
 thresholds = load_rules(rules_path)
 
-def get_all_readings():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_all_readings(selected_segments=None):
     """Get all readings from database with calculated ratios."""
     db_conn = get_default_connection()
 
@@ -1148,15 +1179,15 @@ def get_all_readings():
                 if col in df.columns:
                     df[col] = df[col].astype(float)
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
 
 # Quick Stats Banner
-df_quick_check = get_all_readings() if 'get_all_readings' in dir() else pd.DataFrame()
+with st.spinner("Loading data..."):
+    df_quick_check = get_all_readings(tuple(st.session_state.selected_segments)) if 'get_all_readings' in dir() else pd.DataFrame()
 if not df_quick_check.empty:
     quick_stats_col1, quick_stats_col2, quick_stats_col3, quick_stats_col4, quick_stats_col5 = st.columns(5)
 
@@ -1242,7 +1273,8 @@ if not df_quick_check.empty:
     st.markdown("<div style='margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
 # Database query functions
-def get_drift_alerts():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_drift_alerts(selected_segments=None):
     """Get all readings that crossed 95% MAOP threshold."""
     db_conn = get_default_connection()
 
@@ -1279,14 +1311,14 @@ def get_drift_alerts():
                 if col in df.columns:
                     df[col] = df[col].astype(float)
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=60, show_spinner=False)
 def get_operator_activity():
     """Get all operator actions from AuditTrail."""
     db_conn = get_default_connection()
@@ -1317,7 +1349,8 @@ def get_operator_activity():
         return pd.DataFrame()
 
 
-def get_sensor_health():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_sensor_health(selected_segments=None):
     """Get sensor health and calibration status."""
     db_conn = get_default_connection()
 
@@ -1353,15 +1386,15 @@ def get_sensor_health():
             if 'DaysSinceCalibration' in df.columns:
                 df['DaysSinceCalibration'] = df['DaysSinceCalibration'].astype(int)
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
 
 
-def get_assets_with_gps():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_assets_with_gps(selected_segments=None):
     """Get all assets with GPS coordinates and current status."""
     db_conn = get_default_connection()
 
@@ -1407,15 +1440,15 @@ def get_assets_with_gps():
                 lambda x: 'VIOLATION' if x >= 100 else 'CRITICAL' if x >= 95 else 'WARNING' if x >= 90 else 'NORMAL'
             )
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
 
 
-def get_unacknowledged_alerts():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_unacknowledged_alerts(selected_segments=None):
     """Get all critical alerts that haven't been acknowledged."""
     db_conn = get_default_connection()
 
@@ -1461,15 +1494,15 @@ def get_unacknowledged_alerts():
                 if col in df.columns:
                     df[col] = df[col].astype(float)
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
 
 
-def get_alert_response_metrics():
+@st.cache_data(ttl=60, show_spinner=False)
+def get_alert_response_metrics(selected_segments=None):
     """Calculate alert response times and acknowledgment rates."""
     db_conn = get_default_connection()
 
@@ -1513,9 +1546,8 @@ def get_alert_response_metrics():
             if 'AckTime' in df.columns:
                 df['ResponseTimeMinutes'] = (pd.to_datetime(df['AckTime']) - pd.to_datetime(df['AlertTime'])).dt.total_seconds() / 60
 
-            # Apply segment filter
-            if st.session_state.selected_segments:
-                df = df[df['SegmentID'].isin(st.session_state.selected_segments)]
+            if selected_segments:
+                df = df[df['SegmentID'].isin(selected_segments)]
 
             return df
         return pd.DataFrame()
@@ -1571,7 +1603,8 @@ with tab_infrastructure:
 with tab_overview:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Real-time compliance overview and financial impact analysis</p>", unsafe_allow_html=True)
 
-    df_readings = get_all_readings()
+    with st.spinner("Loading data..."):
+        df_readings = get_all_readings(tuple(st.session_state.selected_segments))
 
     if not df_readings.empty:
         total_readings = len(df_readings)
@@ -1593,10 +1626,16 @@ with tab_overview:
         roi_percentage = (net_impact / max(1, violation_cost + critical_cost)) * 100 if (violation_cost + critical_cost) > 0 else 0
 
         col1.metric("Violation Fines", f"${violation_cost:,}",
+                   delta=f"{violations} violation{'s' if violations != 1 else ''}" if violations > 0 else "None",
+                   delta_color="inverse" if violations > 0 else "off",
                    help="Estimated regulatory fines for MAOP violations")
         col2.metric("Inspection Costs", f"${critical_cost:,}",
+                   delta=f"{critical_events} critical event{'s' if critical_events != 1 else ''}" if critical_events > 0 else "None",
+                   delta_color="inverse" if critical_events > 0 else "off",
                    help="Required inspection costs for critical events")
         col3.metric("Preventive Savings", f"${preventive_savings:,}",
+                   delta=f"+${preventive_savings:,} saved",
+                   delta_color="normal",
                    help="Savings from early warning and prevention")
 
         fi_col1, fi_col2, fi_col3 = st.columns(3)
@@ -1675,7 +1714,19 @@ with tab_overview:
 
         st.plotly_chart(fig_heatmap, use_container_width=True)
     else:
-        st.warning("No data available. Run setup_demo.py first.")
+        st.markdown(f"""
+        <div style="background: {warning_color}10; border: 1px solid {warning_color}30;
+                    border-left: 4px solid {warning_color}; border-radius: 12px;
+                    padding: 1.5rem 2rem; margin: 2rem 0; text-align: center;">
+            <div style="font-size: 1.25rem; font-weight: 600; color: {text_color}; margin-bottom: 0.5rem;">
+                No data found
+            </div>
+            <div style="font-size: 0.875rem; color: {label_color}; line-height: 1.6;">
+                The database is empty or unreachable.<br>
+                Run <code style="background: {border_color}; padding: 0.1rem 0.4rem; border-radius: 4px;">python populate_demo_data.py</code> to load demo data, then refresh.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # TAB 1: LIVE PULSE
@@ -1766,7 +1817,7 @@ with sub_pulse:
 with sub_alerts:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Critical threshold crossings with smart filtering</p>", unsafe_allow_html=True)
 
-    df_alerts = get_drift_alerts()
+    df_alerts = get_drift_alerts(tuple(st.session_state.selected_segments))
 
     if not df_alerts.empty:
         col1, col2, col3 = st.columns(3)
@@ -1782,7 +1833,7 @@ with sub_alerts:
 
         st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Smart Filtering Analysis</h3>", unsafe_allow_html=True)
 
-        df_all_readings = get_all_readings()
+        df_all_readings = get_all_readings(tuple(st.session_state.selected_segments))
         if not df_all_readings.empty:
             filter_summary = get_spike_vs_sustained_summary(df_all_readings, window_minutes=5)
             filtered_data = filter_summary['filtered_data']
@@ -1811,7 +1862,7 @@ with sub_alerts:
 with sub_map:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>GPS visualization with real-time status indicators</p>", unsafe_allow_html=True)
 
-    df_assets = get_assets_with_gps()
+    df_assets = get_assets_with_gps(tuple(st.session_state.selected_segments))
 
     if not df_assets.empty:
         col1, col2, col3, col4 = st.columns(4)
@@ -1876,7 +1927,7 @@ with sub_map:
 with sub_schematic:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Network topology and flow characteristics</p>", unsafe_allow_html=True)
 
-    df_assets = get_assets_with_gps()
+    df_assets = get_assets_with_gps(tuple(st.session_state.selected_segments))
 
     if not df_assets.empty:
         positions = {
@@ -1958,7 +2009,7 @@ with sub_schematic:
 with sub_alerts_mgmt:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Inbox-style workflow for compliance tracking</p>", unsafe_allow_html=True)
 
-    df_all_alerts = get_unacknowledged_alerts()
+    df_all_alerts = get_unacknowledged_alerts(tuple(st.session_state.selected_segments))
 
     if not df_all_alerts.empty:
         col1, col2, col3, col4 = st.columns(4)
@@ -2032,6 +2083,52 @@ with sub_alerts_mgmt:
     else:
         st.success("No alerts in the system.")
 
+    # Response Time Analytics
+    st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='font-size: 1rem; margin-bottom: 1rem;'>Response Time Analytics</h3>", unsafe_allow_html=True)
+
+    df_response = get_alert_response_metrics(tuple(st.session_state.selected_segments))
+
+    if not df_response.empty and 'ResponseTimeMinutes' in df_response.columns:
+        responded = df_response.dropna(subset=['ResponseTimeMinutes'])
+        unresponded = df_response[df_response['ResponseTimeMinutes'].isna()]
+
+        rt_col1, rt_col2, rt_col3, rt_col4 = st.columns(4)
+        avg_rt = responded['ResponseTimeMinutes'].mean() if not responded.empty else None
+        fastest = responded['ResponseTimeMinutes'].min() if not responded.empty else None
+        slowest = responded['ResponseTimeMinutes'].max() if not responded.empty else None
+
+        rt_col1.metric("Avg Response Time",
+                       f"{avg_rt:.1f} min" if avg_rt is not None else "N/A",
+                       help="Average time from alert to operator acknowledgment")
+        rt_col2.metric("Fastest Response",
+                       f"{fastest:.1f} min" if fastest is not None else "N/A",
+                       help="Quickest acknowledgment time")
+        rt_col3.metric("Slowest Response",
+                       f"{slowest:.1f} min" if slowest is not None else "N/A",
+                       help="Longest time before acknowledgment")
+        rt_col4.metric("Unacknowledged",
+                       len(unresponded),
+                       delta=f"{len(unresponded)} pending" if len(unresponded) > 0 else "All clear",
+                       delta_color="inverse" if len(unresponded) > 0 else "off",
+                       help="Alerts with no operator response recorded")
+
+        if not responded.empty:
+            st.markdown(f"<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+            responded_display = responded.copy()
+            responded_display['AlertTime'] = pd.to_datetime(responded_display['AlertTime']).dt.strftime('%Y-%m-%d %H:%M')
+            responded_display['ResponseTimeMinutes'] = responded_display['ResponseTimeMinutes'].round(1).astype(str) + ' min'
+            st.dataframe(
+                responded_display[['AlertTime', 'SegmentID', 'AlertLevel', 'ResponseTimeMinutes']].rename(
+                    columns={'AlertTime': 'Alert Time', 'SegmentID': 'Segment',
+                             'AlertLevel': 'Severity', 'ResponseTimeMinutes': 'Response Time'}
+                ),
+                use_container_width=True,
+                height=250
+            )
+    else:
+        st.info("No response time data available. Acknowledge alerts in the Pending tab to track response times.")
+
 
 # TAB 6: COMPLIANCE LEDGER
 with sub_ledger:
@@ -2051,9 +2148,9 @@ with sub_ledger:
     with col2:
         st.info("Each reading contains a SHA-256 hash including the previous reading's hash, creating an immutable chain.")
 
-    st.markdown("---")
+    st.markdown(f"<div style='border-top: 1px solid {border_color}; margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
-    df_readings = get_all_readings()
+    df_readings = get_all_readings(tuple(st.session_state.selected_segments))
     if not df_readings.empty:
         df_ledger = df_readings.copy()
         df_ledger['Timestamp'] = pd.to_datetime(df_ledger['Timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -2102,7 +2199,7 @@ with tab_audit:
 with sub_sensors:
     st.markdown(f"<p style='color: {label_color}; margin-bottom: 1.5rem;'>Calibration status and predictive maintenance</p>", unsafe_allow_html=True)
 
-    df_sensors = get_sensor_health()
+    df_sensors = get_sensor_health(tuple(st.session_state.selected_segments))
 
     if not df_sensors.empty:
         col1, col2, col3, col4 = st.columns(4)
